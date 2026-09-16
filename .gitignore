@@ -1,0 +1,23 @@
+# General
+.DS_Store
+*.log
+.env
+.env.local
+# Firmware
+firmware/.pio/
+firmware/.vscode/
+# Flutter
+app-paciente/.dart_tool/
+app-paciente/build/
+app-paciente/.flutter-plugins*
+app-paciente/**/*.iml
+app-paciente/android/local.properties
+# Web
+web-medico/node_modules/
+web-medico/dist/
+# Supabase
+backend/supabase/.temp/
+backend/supabase/.branches/
+# KiCad
+hardware/**/*-backups/
+hardware/**/*.lck
