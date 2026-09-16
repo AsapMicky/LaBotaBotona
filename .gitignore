@@ -1,23 +1,54 @@
 # General
 .DS_Store
+Thumbs.db
+desktop.ini
 *.log
 .env
 .env.local
+.env.*.local
+.idea/
+.vscode/
+*.iml
+
+# Python (entornos virtuales, p. ej. el de PlatformIO)
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 # Firmware
 firmware/.pio/
-firmware/.vscode/
-# Flutter
+firmware/.venv/
+
+# Flutter (app-paciente)
 app-paciente/.dart_tool/
 app-paciente/build/
 app-paciente/.flutter-plugins*
 app-paciente/**/*.iml
+# Android generado por flutter create / Android Studio
+app-paciente/android/.gradle/
 app-paciente/android/local.properties
+app-paciente/android/app/.cxx/
+app-paciente/android/**/GeneratedPluginRegistrant.java
+app-paciente/android/key.properties
+app-paciente/**/*.jks
+app-paciente/**/*.keystore
+# iOS (por si algún día se agrega la plataforma)
+app-paciente/ios/Pods/
+app-paciente/ios/.symlinks/
+app-paciente/ios/Flutter/Generated.xcconfig
+app-paciente/ios/Flutter/flutter_export_environment.sh
+app-paciente/ios/**/GeneratedPluginRegistrant.*
+
 # Web
 web-medico/node_modules/
 web-medico/dist/
+web-medico/.vite/
+
 # Supabase
 backend/supabase/.temp/
 backend/supabase/.branches/
+
 # KiCad
 hardware/**/*-backups/
 hardware/**/*.lck
