@@ -1,0 +1,20 @@
+# Finales de línea: LF en el repo y en el working tree (la CI corre en Linux).
+* text=auto eol=lf
+
+# Scripts de shell siempre LF; scripts de Windows siempre CRLF.
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binarios: no tocar.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.ttf  binary
+*.otf  binary
+*.jks  binary
+*.keystore binary
