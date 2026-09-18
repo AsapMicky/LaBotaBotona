@@ -21,7 +21,8 @@ revisa entre consultas. El foco de ingeniería es que el indicador sea **confiab
 - `firmware/src` — todo lo que depende del hardware.
 - `backend/supabase` — esquema, permisos (RLS), datos de prueba, función de subida.
 - `app-paciente` — Flutter. `lib/dispositivo/` abstrae simulado vs BLE real; `modelo.dart` es el dato,
-  `codec_ble.dart` los bytes (decisión 005).
+  `codec_ble.dart` los bytes (decisión 005). `lib/vinculacion/` el token del QR; `lib/subida/` la cola local
+  y la subida a `subir-datos` (nunca lee de Supabase).
 - `web-medico` — React + Vite. `src/datos/fuente.js` abstrae mocks vs Supabase.
 
 ## Comandos

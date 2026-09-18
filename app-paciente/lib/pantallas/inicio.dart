@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../dispositivo/dispositivo.dart';
 import '../dispositivo/modelo.dart';
+import '../subida/sincronizador.dart';
 import '../tema.dart';
 import '../vinculacion/vinculacion.dart';
 import 'vinculacion.dart';
@@ -9,7 +10,8 @@ import 'vinculacion.dart';
 class PantallaInicio extends StatefulWidget {
   final Dispositivo dispositivo;
   final ControladorVinculacion vinculacion;
-  const PantallaInicio({super.key, required this.dispositivo, required this.vinculacion});
+  final Sincronizador? sincronizador;
+  const PantallaInicio({super.key, required this.dispositivo, required this.vinculacion, this.sincronizador});
 
   @override
   State<PantallaInicio> createState() => _PantallaInicioState();
@@ -42,7 +44,9 @@ class _PantallaInicioState extends State<PantallaInicio> {
 
   void _abrirVinculacion() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => PantallaVinculacion(vinculacion: widget.vinculacion)),
+      MaterialPageRoute(
+        builder: (_) => PantallaVinculacion(vinculacion: widget.vinculacion, sincronizador: widget.sincronizador),
+      ),
     );
   }
 

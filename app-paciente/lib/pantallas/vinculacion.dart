@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../subida/sincronizador.dart';
 import '../vinculacion/vinculacion.dart';
 import 'escanear_qr.dart';
 
-/// Estado de la vinculación con el médico.
-/// No muestra ningún valor de carga: solo fechas y el estado.
+/// Estado de la vinculación con el médico y del envío de datos.
+/// No muestra ningún valor de carga: solo fechas, cantidades y el estado.
 class PantallaVinculacion extends StatelessWidget {
   final ControladorVinculacion vinculacion;
+  final Sincronizador? sincronizador;
 
-  const PantallaVinculacion({super.key, required this.vinculacion});
+  const PantallaVinculacion({super.key, required this.vinculacion, this.sincronizador});
 
   Future<void> _escanear(BuildContext context) async {
     final token = await Navigator.of(context).push<String>(
@@ -35,10 +37,11 @@ class PantallaVinculacion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = sincronizador;
     return Scaffold(
       appBar: AppBar(title: const Text('Mi médico')),
       body: ListenableBuilder(
-        listenable: vinculacion,
+        listenable: s == null ? vinculacion : Listenable.merge([vinculacion, s]),
         builder: (context, _) {
           final texto = Theme.of(context).textTheme;
           final v = vinculacion.actual;
@@ -64,6 +67,10 @@ class PantallaVinculacion extends StatelessWidget {
                     destacada: true,
                   ),
               },
+              if (s != null && v != null) ...[
+                const SizedBox(height: 16),
+                _EstadoEnvio(s: s),
+              ],
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () => _escanear(context),
@@ -124,4 +131,66 @@ class _Tarjeta extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EstadoEnvio extends StatelessWidget {
+  final Sincronizador s;
+  const _EstadoEnvio({required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final texto = Theme.of(context).textTheme;
+    final dias = s.diasPendientes;
+    final String estado;
+    if (!s.servidorConfigurado) {
+      estado = 'Versión de prueba sin servidor: los datos quedan guardados en el celular.';
+    } else if (s.subiendo) {
+      estado = 'Enviando…';
+    } else if (s.ultimoError != null) {
+      estado = 'No se pudo enviar (${s.ultimoError}). Se vuelve a intentar solo.';
+    } else if (dias == 0) {
+      estado = 'Todo enviado.';
+    } else {
+      estado = 'Se envía cuando haya conexión.';
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Envío a tu médico', style: texto.titleMedium),
+            const SizedBox(height: 8),
+            _Fila('Días pendientes de enviar', '$dias'),
+            _Fila('Último envío', s.ultimaSubida == null ? 'todavía ninguno' : fechaCorta(s.ultimaSubida!)),
+            const SizedBox(height: 8),
+            Row(children: [
+              if (s.subiendo) ...[
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 8),
+              ],
+              Expanded(child: Text(estado, style: texto.bodySmall)),
+            ]),
+            if (s.servidorConfigurado)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(onPressed: s.subiendo ? null : s.subirAhora, child: const Text('Enviar ahora')),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Fila extends StatelessWidget {
+  final String clave;
+  final String valor;
+  const _Fila(this.clave, this.valor);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [Expanded(child: Text(clave)), Text(valor, style: Theme.of(context).textTheme.bodyLarge)]),
+      );
 }
