@@ -42,9 +42,12 @@ Potenciómetro de 10 kΩ entre 3,3 V y GND, cursor al pin indicado en `firmware/
 cd app-paciente
 flutter create . --project-name dosimetro_paciente --platforms android,ios   # solo la primera vez
 flutter pub get
-flutter run                                  # modo simulado (default)
+flutter run                                  # modo simulado (default), sin subida
 flutter run --dart-define=SIMULADO=false     # BLE real, necesita celular físico
+flutter run --dart-define=SUPABASE_URL=https://xxxx.supabase.co   # además sube a subir-datos
 ```
+Para probar la subida sin Supabase: `node scripts/subir-datos-falso.mjs` y
+`--dart-define=SUPABASE_URL=http://10.0.2.2:8787` (desde el emulador, 10.0.2.2 es la PC).
 Después del `flutter create`, agregar los permisos de Bluetooth del bloque de abajo en
 `android/app/src/main/AndroidManifest.xml` (el emulador de Android **no** tiene Bluetooth).
 
