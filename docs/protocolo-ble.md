@@ -86,3 +86,9 @@ cierra el episodio y **borra el historial** (devolución del equipo).
 ## Pendiente para versiones siguientes
 - Emparejamiento con passkey (hoy cualquiera en rango puede leer; aceptable en banco, no en uso real).
 - Guardar historial en LittleFS (hoy está en RAM en el prototipo).
+- **Resúmenes de días anteriores.** La característica 0002 expone solo el día en curso, y a
+  medianoche el equipo reinicia el acumulado. Si el paciente no abre la app un día, ese resumen
+  se pierde: al médico le queda un hueco. Los registros por minuto de ese día sí sobreviven
+  (hasta 3 días en RAM), pero no alcanzan para reconstruirlo: no traen Texceso, Tsub ni la dosis
+  de subcarga, así que no se puede derivar el cumplimiento. Falta decidir cómo exponerlos
+  (una característica nueva, o extender 0003/0004 con resúmenes además de minutos).
