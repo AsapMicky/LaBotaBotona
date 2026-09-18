@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../dispositivo/dispositivo.dart';
 import '../dispositivo/modelo.dart';
 import '../tema.dart';
+import '../vinculacion/vinculacion.dart';
+import 'vinculacion.dart';
 
 class PantallaInicio extends StatefulWidget {
   final Dispositivo dispositivo;
-  const PantallaInicio({super.key, required this.dispositivo});
+  final ControladorVinculacion vinculacion;
+  const PantallaInicio({super.key, required this.dispositivo, required this.vinculacion});
 
   @override
   State<PantallaInicio> createState() => _PantallaInicioState();
@@ -37,6 +40,12 @@ class _PantallaInicioState extends State<PantallaInicio> {
     }
   }
 
+  void _abrirVinculacion() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PantallaVinculacion(vinculacion: widget.vinculacion)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final conectado = _conexion == EstadoConexion.conectado && _estado != null;
@@ -45,16 +54,42 @@ class _PantallaInicioState extends State<PantallaInicio> {
         title: const Text('Mi ortesis'),
         actions: [
           if (conectado) _Bateria(nivel: _estado!.bateria, cargando: _estado!.cargando),
-          const SizedBox(width: 16),
+          IconButton(
+            tooltip: 'Mi médico',
+            icon: const Icon(Icons.medical_services_outlined),
+            onPressed: _abrirVinculacion,
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: conectado ? _vistaConectado(_estado!) : _vistaSinConexion(),
+          child: ListenableBuilder(
+            listenable: widget.vinculacion,
+            builder: (context, _) => conectado ? _vistaConectado(_estado!) : _vistaSinConexion(),
+          ),
         ),
       ),
     );
+  }
+
+  /// Aviso de vinculación, solo cuando hay algo que hacer.
+  Widget? _avisoVinculacion() {
+    if (!widget.vinculacion.cargado) return null;
+    return switch (widget.vinculacion.estado) {
+      EstadoVinculacion.sinVincular => _Aviso(
+          icono: Icons.qr_code_scanner,
+          texto: 'Todavía no vinculaste la app con tu médico. Tocá acá para escanear su código.',
+          alTocar: _abrirVinculacion,
+        ),
+      EstadoVinculacion.revocada => _Aviso(
+          icono: Icons.link_off,
+          texto: 'Tu médico cerró este tratamiento. Si empezás uno nuevo, escaneá el código nuevo.',
+          alTocar: _abrirVinculacion,
+        ),
+      EstadoVinculacion.vinculada => null,
+    };
   }
 
   Widget _vistaSinConexion() {
@@ -86,9 +121,11 @@ class _PantallaInicioState extends State<PantallaInicio> {
   Widget _vistaConectado(EstadoVivo e) {
     final v = VistaRegimen.de(e.regimen);
     final texto = Theme.of(context).textTheme;
+    final avisoVinculacion = _avisoVinculacion();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (avisoVinculacion != null) avisoVinculacion,
         if (e.limitePendiente)
           const _Aviso(
             icono: Icons.edit_note,
@@ -155,12 +192,18 @@ class _ResumenHoy extends StatelessWidget {
 class _Aviso extends StatelessWidget {
   final IconData icono;
   final String texto;
-  const _Aviso({required this.icono, required this.texto});
+  final VoidCallback? alTocar;
+  const _Aviso({required this.icono, required this.texto, this.alTocar});
 
   @override
   Widget build(BuildContext context) => Card(
         color: Theme.of(context).colorScheme.secondaryContainer,
-        child: ListTile(leading: Icon(icono), title: Text(texto)),
+        child: ListTile(
+          leading: Icon(icono),
+          title: Text(texto),
+          trailing: alTocar == null ? null : const Icon(Icons.chevron_right),
+          onTap: alTocar,
+        ),
       );
 }
 
