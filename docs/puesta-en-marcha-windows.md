@@ -182,7 +182,8 @@ del README raíz adentro de `<manifest>` y antes de `<application>`.
 La app arranca por defecto en **modo simulado** (`SIMULADO=true` en `lib/main.dart`): inventa estados del
 equipo para poder diseñar la pantalla sin hardware. El emulador sirve perfecto para esto.
 
-**Crear un emulador (una sola vez):**
+**Crear un emulador (una sola vez).** En la máquina de Migue ya existe uno, `Pixel_7_API_35` (Android 15,
+creado con `avdmanager`). En otra PC:
 1. Android Studio → barra lateral derecha → **Device Manager** (ícono de celular) → **+** / **Create Virtual Device**.
 2. Elegí **Pixel 7** (o cualquier teléfono) → **Next**.
 3. Imagen del sistema: una con **Google APIs**, API 34 o 35 (si dice *Download* al lado, bajala primero) → **Next** → **Finish**.
@@ -201,6 +202,20 @@ flutter run                       # compila y corre (la primera vez tarda varios
 Vas a ver el semáforo cambiando solo cada pocos segundos y la batería bajando. Es la simulación.
 
 > El emulador de Android **no tiene Bluetooth**. Para probar contra el ESP32 real hace falta un celular físico (§9).
+
+**Probar la vinculación y la subida sin Supabase.** En otra terminal, en la raíz del repo:
+```powershell
+node scripts\subir-datos-falso.mjs
+```
+y corré la app apuntando a ese servidor (desde el emulador, `10.0.2.2` es tu PC):
+```powershell
+flutter run --dart-define=SUPABASE_URL=http://10.0.2.2:8787
+```
+En la app, tocá el ícono de médico arriba a la derecha → *Escanear el código* → como la cámara del emulador
+no lee un QR de la pantalla, pegá un token en el campo de abajo (cualquier UUID, por ejemplo
+`3f2504e0-4f89-41d3-9a0c-0305e82c3301`) → *Usar*. En la terminal del servidor falso vas a ver llegar los POST
+con el resumen del día y los registros por minuto del equipo simulado. Con `CERRADO=1` antes del `node`,
+el servidor contesta "episodio cerrado" y la app marca la vinculación como revocada.
 
 ---
 
