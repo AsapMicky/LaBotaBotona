@@ -294,5 +294,50 @@
       "offset_min": 0,
       "bytes": "C0 84 AA 6A 00 00"
     }
+  ],
+  "pedido_resumenes": [
+    {
+      "nombre": "desde el 16/9/2026 12:00 UTC",
+      "desde": 1789560000,
+      "bytes": "03 C0 84 AA 6A"
+    },
+    {
+      "nombre": "todos los que haya",
+      "desde": 0,
+      "bytes": "03 00 00 00 00"
+    }
+  ],
+  "paquete_resumenes": [
+    {
+      "nombre": "fin de transmisión",
+      "bytes": "FF FF",
+      "esperado": {
+        "secuencia": 65535,
+        "cantidad": 0
+      }
+    },
+    {
+      "nombre": "secuencia 0 con dos días",
+      "bytes": "00 00 80 8A A8 6A 00 00 3B 43 00 00 48 41 64 00 00 00 0D 00 00 00 14 00 00 00 9A 01 17 00 00 DC A9 6A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "esperado": {
+        "secuencia": 0,
+        "cantidad": 2,
+        "resumenes": [
+          "día con datos (mismo caso que protocolo_test.dart)",
+          "día sin apoyo"
+        ]
+      }
+    },
+    {
+      "nombre": "secuencia 3 con un día",
+      "bytes": "03 00 80 8A A8 6A 00 00 3B 43 00 00 48 41 64 00 00 00 0D 00 00 00 14 00 00 00 9A 01 17 00",
+      "esperado": {
+        "secuencia": 3,
+        "cantidad": 1,
+        "resumenes": [
+          "día con datos (mismo caso que protocolo_test.dart)"
+        ]
+      }
+    }
   ]
 }

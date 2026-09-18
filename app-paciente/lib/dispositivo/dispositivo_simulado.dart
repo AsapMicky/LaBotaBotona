@@ -84,6 +84,33 @@ class DispositivoSimulado implements Dispositivo {
   }
 
   @override
+  Future<List<ResumenDiario>> descargarResumenes(DateTime desde) async {
+    // Dos semanas de días ya cerrados, con una mejora progresiva, para que el médico
+    // vea una curva y no un punto suelto. El día en curso no va acá: sale de leerResumen().
+    final hoy = DateTime.now();
+    final salida = <ResumenDiario>[];
+    for (var i = 14; i >= 1; i--) {
+      final dia = DateTime(hoy.year, hoy.month, hoy.day).subtract(Duration(days: i));
+      final k = (14 - i) / 13.0; // 0 al principio del tratamiento, 1 cerca de hoy
+      final tCarga = 7000 + (_azar.nextDouble() * 2000).round();
+      final tExceso = (tCarga * (0.22 - 0.18 * k + _azar.nextDouble() * 0.03)).round();
+      final tSub = (tCarga * (0.10 + _azar.nextDouble() * 0.05)).round();
+      final r = ResumenDiario(
+        inicioDia: dia.toUtc(),
+        dosisSobrecarga: tExceso / 9 + _azar.nextDouble() * 15,
+        dosisSubcarga: tSub / 45,
+        tCarga: tCarga,
+        tExceso: tExceso,
+        tSub: tSub,
+        pico: 42 - 6 * k + _azar.nextDouble() * 4,
+        excedencias: (34 - 26 * k + _azar.nextDouble() * 4).round(),
+      );
+      if (!r.inicioDia.isBefore(desde)) salida.add(r);
+    }
+    return salida;
+  }
+
+  @override
   Future<List<RegistroMinuto>> descargarHistorial(DateTime desde) async {
     final base = DateTime.now().toUtc().subtract(const Duration(hours: 2));
     return [

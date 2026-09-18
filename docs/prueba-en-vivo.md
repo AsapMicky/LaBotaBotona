@@ -19,6 +19,7 @@ Dura unos cinco minutos.
 ```
 
 El paciente **nunca** crea una cuenta y la app **nunca** lee de la nube: solo escribe (decisión 005).
+El equipo es autónomo: mide y guarda sin depender de que haya un celular cerca.
 
 ## Antes de empezar
 
@@ -64,8 +65,13 @@ flutter build apk --release --dart-define=SUPABASE_URL=https://<tu-proyecto>.sup
    pantalla de la computadora. La primera vez pide permiso de cámara.
 6. La pantalla pasa a **"Vinculada con tu médico"**. Abajo, *Envío a tu médico* muestra los días
    pendientes bajando a cero y la fecha del último envío. Si tarda, *Enviar ahora*.
-7. **Volver a la web**, entrar al paciente nuevo y **recargar**. Ya está el día de hoy: cumplimiento,
-   excedencias, horas de apoyo y el gráfico con su primer punto.
+7. **Volver a la web**, entrar al paciente nuevo y **recargar**. Aparecen **quince días**: los catorce
+   que el equipo tenía guardados de antes de la vinculación, más el día en curso. Cumplimiento,
+   excedencias, horas de apoyo y la curva de evolución completa.
+
+Ese último punto es el que conviene remarcar: el equipo venía registrando **antes** de que existiera la
+vinculación, y guarda cada día al pasar la medianoche. La app no es la que mide, es la que transporta.
+Si el paciente pasa una semana sin abrirla, no se pierde nada: cuando la abre, viajan los siete días.
 
 ### Para mostrar el cierre del tratamiento
 

@@ -50,25 +50,54 @@ void main() {
     }
   });
 
+  void compararResumen(ResumenDiario r, Map<String, dynamic> esp) {
+    expect(r.inicioDia.millisecondsSinceEpoch ~/ 1000, esp['inicio_dia']);
+    expect(r.inicioDia.isUtc, isTrue);
+    expect(r.dosisSobrecarga, _cerca(esp['dosis_sobrecarga'] as num));
+    expect(r.dosisSubcarga, _cerca(esp['dosis_subcarga'] as num));
+    expect(r.tCarga, esp['t_carga_s']);
+    expect(r.tExceso, esp['t_exceso_s']);
+    expect(r.tSub, esp['t_sub_s']);
+    expect(r.pico, _cerca(esp['pico'] as num));
+    expect(r.excedencias, esp['excedencias']);
+    expect(r.tVentana, esp['t_ventana_s']);
+    final c = esp['cumplimiento'];
+    expect(r.cumplimiento, c == null ? isNull : _cerca(c as num));
+    final p = esp['permanencia'];
+    expect(r.permanencia, p == null ? isNull : _cerca(p as num));
+  }
+
   group('resumen del día', () {
     for (final v in vec['resumen'] as List) {
       test(v['nombre'], () {
+        final b = _desdeHexa(v['bytes']);
+        expect(b, hasLength(tamResumen));
+        compararResumen(decodificarResumen(b), v['esperado'] as Map<String, dynamic>);
+      });
+    }
+  });
+
+  group('paquete de resúmenes de días cerrados', () {
+    final porNombre = {for (final r in vec['resumen'] as List) r['nombre'] as String: r['esperado']};
+    for (final v in vec['paquete_resumenes'] as List) {
+      test(v['nombre'], () {
         final esp = v['esperado'] as Map<String, dynamic>;
-        final r = decodificarResumen(_desdeHexa(v['bytes']));
-        expect(r.inicioDia.millisecondsSinceEpoch ~/ 1000, esp['inicio_dia']);
-        expect(r.inicioDia.isUtc, isTrue);
-        expect(r.dosisSobrecarga, _cerca(esp['dosis_sobrecarga'] as num));
-        expect(r.dosisSubcarga, _cerca(esp['dosis_subcarga'] as num));
-        expect(r.tCarga, esp['t_carga_s']);
-        expect(r.tExceso, esp['t_exceso_s']);
-        expect(r.tSub, esp['t_sub_s']);
-        expect(r.pico, _cerca(esp['pico'] as num));
-        expect(r.excedencias, esp['excedencias']);
-        expect(r.tVentana, esp['t_ventana_s']);
-        final c = esp['cumplimiento'];
-        expect(r.cumplimiento, c == null ? isNull : _cerca(c as num));
-        final p = esp['permanencia'];
-        expect(r.permanencia, p == null ? isNull : _cerca(p as num));
+        final (seq, resumenes) = decodificarPaqueteResumenes(_desdeHexa(v['bytes']));
+        expect(seq, esp['secuencia']);
+        expect(resumenes, hasLength(esp['cantidad'] as int));
+        if (seq == seqFin) expect(resumenes, isEmpty);
+        for (var i = 0; i < resumenes.length; i++) {
+          compararResumen(resumenes[i], porNombre[esp['resumenes'][i]] as Map<String, dynamic>);
+        }
+      });
+    }
+  });
+
+  group('pedido de resúmenes (la app codifica)', () {
+    for (final v in vec['pedido_resumenes'] as List) {
+      test(v['nombre'], () {
+        final desde = DateTime.fromMillisecondsSinceEpoch((v['desde'] as int) * 1000, isUtc: true);
+        expect(codificarPedidoResumenes(desde), _desdeHexa(v['bytes']));
       });
     }
   });

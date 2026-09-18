@@ -49,6 +49,23 @@ class EquipoFalso implements Dispositivo {
     ];
   }
 
+  DateTime? desdeResumenesPedido;
+
+  /// Dos días ya cerrados, como los que guarda el equipo al pasar la medianoche.
+  @override
+  Future<List<ResumenDiario>> descargarResumenes(DateTime desde) async {
+    desdeResumenesPedido = desde;
+    return [
+      for (final d in [DateTime.utc(2026, 9, 14, 3), DateTime.utc(2026, 9, 15, 3)])
+        if (!d.isBefore(desde))
+          ResumenDiario(
+            inicioDia: d,
+            dosisSobrecarga: 20, dosisSubcarga: 1, tCarga: 200, tExceso: 20, tSub: 10,
+            pico: 28, excedencias: 2,
+          ),
+    ];
+  }
+
   @override
   void liberar() => _conexion.close();
 }
@@ -103,12 +120,32 @@ void main() {
     expect(equipo.lecturas, 1);
     expect(recibidos, hasLength(2));
     expect(recibidos.last['token'], token);
-    expect(recibidos.last['resumenes'], hasLength(1));
+    // El día en curso más los dos días ya cerrados que guardó el equipo.
+    expect(recibidos.last['resumenes'], hasLength(3));
+    expect((recibidos.last['resumenes'] as List).map((r) => r['fecha']),
+        containsAll(['2026-09-14', '2026-09-15']));
     expect(recibidos.last['registros'], hasLength(2));
     expect(s.diasPendientes, 0);
     expect(s.registrosPendientes, 0);
     expect(s.ultimaSubida, isNotNull);
     expect(s.ultimoError, isNull);
+    s.dispose();
+  });
+
+  test('los días cerrados se piden una sola vez', () async {
+    await vinculacion.vincular(token);
+    final s = armar(ok);
+    await s.iniciar();
+    equipo.conectado();
+    await respirar();
+    expect(recibidos.last['resumenes'], hasLength(3));
+
+    recibidos.clear();
+    equipo.conectado();
+    await respirar();
+    // El equipo ya no tiene días cerrados nuevos: solo se reenvía el día en curso.
+    expect(equipo.desdeResumenesPedido!.isAfter(DateTime.utc(2026, 9, 15, 3)), isTrue);
+    expect(recibidos.last['resumenes'], hasLength(1));
     s.dispose();
   });
 
@@ -144,7 +181,7 @@ void main() {
     equipo.conectado();
     await respirar();
     expect(s.servidorConfigurado, isFalse);
-    expect(s.diasPendientes, 1);
+    expect(s.diasPendientes, 3); // el día en curso y los dos ya cerrados
     expect(s.registrosPendientes, 2);
     expect(recibidos, isEmpty);
     s.dispose();
@@ -156,12 +193,13 @@ void main() {
     equipo.conectado();
     await respirar();
     expect(recibidos, isEmpty);
-    expect(s.diasPendientes, 1);
+    expect(s.diasPendientes, 3);
 
     // Al escanear el QR sale todo lo acumulado
     await vinculacion.vincular(token);
     await respirar();
     expect(recibidos, hasLength(1));
+    expect(recibidos.single['resumenes'], hasLength(3));
     expect(s.diasPendientes, 0);
     s.dispose();
   });
@@ -173,7 +211,7 @@ void main() {
     equipo.conectado();
     await respirar();
     expect(s.ultimoError, contains('503'));
-    expect(s.diasPendientes, 1);
+    expect(s.diasPendientes, 3);
     expect(s.registrosPendientes, 2);
     expect(vinculacion.estado, EstadoVinculacion.vinculada);
     s.dispose();
@@ -189,7 +227,7 @@ void main() {
     equipo.conectado();
     await respirar();
     expect(recibidos.length, antes); // revocada: no vuelve a intentar
-    expect(s.diasPendientes, 1); // pero el dato sigue guardado
+    expect(s.diasPendientes, 3); // pero el dato sigue guardado
     s.dispose();
   });
 

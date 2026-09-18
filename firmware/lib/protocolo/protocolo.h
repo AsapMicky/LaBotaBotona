@@ -16,12 +16,22 @@ constexpr const char* UUID_HIST_DATOS = "6f1a0004-8b3c-4d5e-9a10-2c7e5b3d9f00";
 constexpr const char* UUID_CONFIG     = "6f1a0005-8b3c-4d5e-9a10-2c7e5b3d9f00";
 constexpr const char* UUID_HORA       = "6f1a0006-8b3c-4d5e-9a10-2c7e5b3d9f00";
 constexpr const char* UUID_INFO       = "6f1a0007-8b3c-4d5e-9a10-2c7e5b3d9f00";
+constexpr const char* UUID_RESUMENES  = "6f1a0008-8b3c-4d5e-9a10-2c7e5b3d9f00";
 
 constexpr size_t TAM_ESTADO = 8;
 constexpr size_t TAM_RESUMEN = 28;
 constexpr size_t TAM_REGISTRO = 12;
 constexpr size_t REGISTROS_POR_PAQUETE = 15;
+// 2 + 8×28 = 226 B, entra en una notificación con el MTU de 247 que pide la app.
+constexpr size_t RESUMENES_POR_PAQUETE = 8;
 constexpr uint16_t SEQ_FIN = 0xFFFF;
+
+// Operaciones de la característica de control (0003).
+enum Op : uint8_t {
+  OP_HISTORIAL = 1,  // registros por minuto desde una fecha
+  OP_CANCELAR = 2,   // cancela cualquier envío en curso
+  OP_RESUMENES = 3,  // resúmenes de días cerrados desde una fecha
+};
 
 enum Flags : uint8_t {
   CARGANDO = 1 << 0,

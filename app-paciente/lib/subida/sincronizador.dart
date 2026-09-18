@@ -82,7 +82,15 @@ class Sincronizador extends ChangeNotifier {
     await _colaLista; // no encolar sobre una cola a medio cargar: pisaría lo pendiente
     _leyendoEquipo = true;
     try {
+      // El día en curso, que el equipo sigue acumulando.
       await _cola.encolarResumen(await _dispositivo.leerResumen());
+
+      // Los días ya cerrados. Esto es lo que tapa el hueco cuando el paciente pasa
+      // días sin abrir la app: el equipo los guardó solo al pasar cada medianoche.
+      final desdeDias = _cola.ultimoDiaCerrado?.add(const Duration(minutes: 1)) ??
+          DateTime.now().toUtc().subtract(const Duration(days: 60));
+      await _cola.encolarResumenes(await _dispositivo.descargarResumenes(desdeDias));
+
       final desde = _cola.ultimoRegistroSubido?.add(const Duration(minutes: 1)) ??
           DateTime.now().toUtc().subtract(const Duration(days: 7));
       await _cola.encolarRegistros(await _dispositivo.descargarHistorial(desde));

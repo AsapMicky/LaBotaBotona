@@ -15,6 +15,7 @@ final String uuidHistDatos = uuidCaracteristica(4);
 final String uuidConfig = uuidCaracteristica(5);
 final String uuidHora = uuidCaracteristica(6);
 final String uuidInfo = uuidCaracteristica(7);
+final String uuidResumenes = uuidCaracteristica(8);
 
 const int versionProtocolo = 1;
 const int seqFin = 0xFFFF;
@@ -22,6 +23,11 @@ const int seqFin = 0xFFFF;
 const int tamEstado = 8;
 const int tamResumen = 28;
 const int tamRegistro = 12;
+
+/// Operaciones de la característica de control (0003).
+const int opHistorial = 1;
+const int opCancelar = 2;
+const int opResumenes = 3;
 
 ByteData _bd(List<int> b) => Uint8List.fromList(b).buffer.asByteData();
 
@@ -49,18 +55,20 @@ EstadoVivo decodificarEstado(List<int> b) {
 /// 0002 · Resumen del día (28 B).
 ResumenDiario decodificarResumen(List<int> b) {
   if (b.length < tamResumen) throw const FormatException('Resumen: se esperaban 28 bytes');
-  final d = _bd(b);
-  return ResumenDiario(
-    inicioDia: DateTime.fromMillisecondsSinceEpoch(d.getUint32(0, Endian.little) * 1000, isUtc: true),
-    dosisSobrecarga: d.getFloat32(4, Endian.little),
-    dosisSubcarga: d.getFloat32(8, Endian.little),
-    tCarga: d.getUint32(12, Endian.little),
-    tExceso: d.getUint32(16, Endian.little),
-    tSub: d.getUint32(20, Endian.little),
-    pico: d.getUint16(24, Endian.little) / 10.0,
-    excedencias: d.getUint16(26, Endian.little),
-  );
+  return decodificarResumenEn(_bd(b), 0);
 }
+
+/// Un resumen de 28 B a partir del offset [o]. Lo usan 0002 y los paquetes de 0008.
+ResumenDiario decodificarResumenEn(ByteData d, int o) => ResumenDiario(
+      inicioDia: DateTime.fromMillisecondsSinceEpoch(d.getUint32(o, Endian.little) * 1000, isUtc: true),
+      dosisSobrecarga: d.getFloat32(o + 4, Endian.little),
+      dosisSubcarga: d.getFloat32(o + 8, Endian.little),
+      tCarga: d.getUint32(o + 12, Endian.little),
+      tExceso: d.getUint32(o + 16, Endian.little),
+      tSub: d.getUint32(o + 20, Endian.little),
+      pico: d.getUint16(o + 24, Endian.little) / 10.0,
+      excedencias: d.getUint16(o + 26, Endian.little),
+    );
 
 /// Registro por minuto (12 B) a partir del offset [o].
 RegistroMinuto decodificarRegistro(ByteData d, int o) => RegistroMinuto(
@@ -81,13 +89,29 @@ RegistroMinuto decodificarRegistro(ByteData d, int o) => RegistroMinuto(
   return (seq, [for (var i = 0; i < n; i++) decodificarRegistro(d, 2 + i * tamRegistro)]);
 }
 
-/// 0003 · Pedido de historial (5 B): op = 1, desde ts.
-List<int> codificarPedidoHistorial(DateTime desde) {
+/// 0008 · Paquete de resúmenes de días cerrados: (secuencia, resúmenes).
+/// Mismo armado que 0004, con registros de 28 B. secuencia == seqFin marca el final.
+(int, List<ResumenDiario>) decodificarPaqueteResumenes(List<int> b) {
+  if (b.length < 2) throw const FormatException('Resúmenes: paquete vacío');
+  final d = _bd(b);
+  final seq = d.getUint16(0, Endian.little);
+  final n = (b.length - 2) ~/ tamResumen;
+  return (seq, [for (var i = 0; i < n; i++) decodificarResumenEn(d, 2 + i * tamResumen)]);
+}
+
+/// 0003 · Pedido de descarga (5 B): `u8 op` + `u32 desde`.
+List<int> _codificarPedido(int op, DateTime desde) {
   final d = ByteData(5)
-    ..setUint8(0, 1)
-    ..setUint32(1, desde.millisecondsSinceEpoch ~/ 1000, Endian.little);
+    ..setUint8(0, op)
+    ..setUint32(1, desde.toUtc().millisecondsSinceEpoch ~/ 1000, Endian.little);
   return d.buffer.asUint8List();
 }
+
+/// Registros por minuto con `ts ≥ desde`.
+List<int> codificarPedidoHistorial(DateTime desde) => _codificarPedido(opHistorial, desde);
+
+/// Resúmenes de días ya cerrados con `inicio del día ≥ desde`.
+List<int> codificarPedidoResumenes(DateTime desde) => _codificarPedido(opResumenes, desde);
 
 /// 0006 · Hora (6 B): epoch UTC + offset local en minutos.
 List<int> codificarHora(DateTime ahora) {
