@@ -27,7 +27,7 @@ para cualquier integrante del grupo.
 ni Dropbox: los sincronizadores rompen `.git`, `node_modules` y `.dart_tool`. Tampoco en rutas con
 espacios o acentos (`C:\Users\Juan Pérez\...` trae problemas con Gradle).
 
-**Qué hace falta y qué ya hay** (estado de la máquina de Migue al 16/9/2026):
+**Qué hace falta y qué ya hay** (estado de la máquina de Migue al 18/9/2026):
 
 | Herramienta | ¿Para qué? | Estado | Cómo conseguirla |
 |---|---|---|---|
@@ -36,12 +36,15 @@ espacios o acentos (`C:\Users\Juan Pérez\...` trae problemas con Gradle).
 | Node.js LTS | web del médico | ✅ 24 LTS | `winget install OpenJS.NodeJS.LTS` |
 | Python 3.11+ | PlatformIO (firmware) | ✅ 3.11 | `winget install Python.Python.3.12` |
 | GCC (WinLibs) | tests del firmware en la PC | ✅ | `winget install BrechtSanders.WinLibs.POSIX.UCRT` |
-| PlatformIO | firmware | ✅ en `firmware\.venv` | ver [§11](#11-tests-y-build-del-firmware) |
+| PlatformIO | firmware | ✅ en `firmware\.venv` (y otra copia global en `~\.platformio\penv`) | ver [§11](#11-tests-y-build-del-firmware) |
 | Android Studio | emulador, SDK, editor de la app | ✅ | https://developer.android.com/studio |
-| Android SDK | compilar la app | ⚠️ falta *cmdline-tools* | ver [§4](#4-flutter-doctor-y-cómo-resolver-lo-que-marca) |
-| Java (JDK) | Gradle (lo usa Flutter por abajo) | ✅ viene con Android Studio | nada que hacer |
-| **Flutter + Dart** | app del paciente | ❌ | [§3](#3-instalar-flutter) |
-| Modo Desarrollador de Windows | plugins de Flutter (symlinks) | ⚠️ | [§2](#2-modo-desarrollador-de-windows) |
+| Android SDK | compilar la app | ✅ con *cmdline-tools* y licencias aceptadas; **falta crear un emulador** | ver [§8](#8-correr-la-app-en-el-emulador-modo-simulado) |
+| Java (JDK) | Gradle (lo usa Flutter por abajo) | ✅ Microsoft OpenJDK 17 + el JBR de Android Studio | nada que hacer |
+| **Flutter + Dart** | app del paciente | ✅ 3.47 stable en `C:\src\flutter` | [§3](#3-instalar-flutter) |
+| Modo Desarrollador de Windows | plugins de Flutter (symlinks) | ⚠️ sin verificar | [§2](#2-modo-desarrollador-de-windows) |
+
+En otra PC del grupo, todo lo de la tabla se instala siguiendo las secciones de abajo. Los scripts
+`setup\*.ps1` que se usaron en la máquina de Migue quedaron fuera del repo a propósito: son de un solo uso.
 
 **Terminal.** Los comandos de esta guía son para **PowerShell** (clic derecho en el botón Inicio →
 *Terminal*). Después de instalar algo o de cambiar el PATH, **cerrá y abrí la terminal de nuevo**: la
@@ -64,17 +67,18 @@ No hace falta reiniciar.
 ## 3. Instalar Flutter
 
 Flutter es un SDK que se descomprime en una carpeta, no un instalador. Dart viene adentro.
+En la máquina de Migue ya está en `C:\src\flutter`; en las demás:
 
 1. Bajá el zip del canal **stable** para Windows desde https://docs.flutter.dev/get-started/install/windows/mobile
    (botón *Download and install* → *flutter_windows_x.y.z-stable.zip*).
-2. Descomprimilo en **`C:\dev\flutter`** (tiene que quedar `C:\dev\flutter\bin\flutter.bat`).
+2. Descomprimilo en **`C:\src\flutter`** (tiene que quedar `C:\src\flutter\bin\flutter.bat`).
    No lo pongas en `C:\Program Files` (permisos) ni en OneDrive.
-3. Agregá `C:\dev\flutter\bin` al PATH del usuario:
+3. Agregá `C:\src\flutter\bin` al PATH del usuario:
    - Inicio → escribí *"variables de entorno"* → **Editar las variables de entorno de la cuenta** (no las del sistema).
-   - En **Variables de usuario**, seleccioná `Path` → **Editar** → **Nuevo** → pegá `C:\dev\flutter\bin` → Aceptar en todo.
+   - En **Variables de usuario**, seleccioná `Path` → **Editar** → **Nuevo** → pegá `C:\src\flutter\bin` → Aceptar en todo.
    - O desde PowerShell, de una:
      ```powershell
-     [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";C:\dev\flutter\bin", "User")
+     [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";C:\src\flutter\bin", "User")
      ```
 4. Cerrá la terminal, abrí una nueva y probá:
    ```powershell
@@ -148,51 +152,28 @@ arriba del editor.
 
 ---
 
-## 7. Primera vez: generar la parte Android y correr los tests
+## 7. Primera vez: dependencias y tests
 
-El repo trae solo el código Dart (`lib/`, `test/`, `pubspec.yaml`). La carpeta `android/` con el proyecto
-Gradle **no está versionada todavía**: la genera Flutter. Esto se hace **una sola vez** y se commitea.
-
-Abrí la terminal integrada de Android Studio (pestaña **Terminal** abajo) o PowerShell en `app-paciente`:
+La carpeta `android/` (el proyecto Gradle, con los permisos de Bluetooth ya puestos en el
+`AndroidManifest.xml`) **ya está en el repo**. No hay que generar nada. Abrí la terminal integrada de
+Android Studio (pestaña **Terminal** abajo) o PowerShell en `app-paciente`:
 
 ```powershell
 cd C:\dev\dosimetro-carga-plantar\app-paciente
-flutter create . --project-name dosimetro_paciente --platforms android
-```
-
-Esto crea `android/`, `.metadata`, `.gitignore` propio de Flutter y **un archivo de test de ejemplo que
-hay que borrar**, porque busca una clase `MyApp` que no existe y rompe `flutter test`:
-
-```powershell
-Remove-Item test\widget_test.dart
-```
-
-Después, los permisos de Bluetooth. Abrí `android\app\src\main\AndroidManifest.xml` y pegá este bloque
-**adentro de `<manifest ...>` y antes de `<application`**:
-
-```xml
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
-```
-
-Ahora sí:
-
-```powershell
 flutter pub get
 flutter analyze
 flutter test
 ```
 
 `flutter analyze` tiene que terminar en *No issues found!* y `flutter test` en *All tests passed!*
-(son los tests de `test/protocolo_test.dart`, que verifican la decodificación del protocolo BLE contra
-los mismos bytes que genera el firmware).
+(son los tests de `test/`, que verifican la decodificación del protocolo BLE contra los mismos bytes
+que genera el firmware). La primera vez `flutter test` tarda varios minutos porque compila el motor de tests.
 
-**Qué commitear después de esto:** `android/` (menos lo que el `.gitignore` ya excluye), `.metadata`,
-`pubspec.lock` y el `.gitignore` nuevo de `app-paciente`. Mensaje sugerido:
-`app: proyecto Android generado con flutter create + permisos BLE`.
+**Si alguna vez hay que regenerar `android/`** (por ejemplo, para migrar a una versión nueva de Flutter),
+el comando es `flutter create . --project-name dosimetro_paciente --platforms android`. Ojo con dos cosas:
+genera un `test/widget_test.dart` de ejemplo que busca una clase `MyApp` inexistente y rompe `flutter test`
+(borrarlo), y pisa el `AndroidManifest.xml`, así que hay que volver a pegar los permisos de Bluetooth
+del README raíz adentro de `<manifest>` y antes de `<application>`.
 
 ---
 
