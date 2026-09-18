@@ -49,6 +49,11 @@ export default function Reporte({ paciente, onCambio }) {
     fuente.resumenesDe(epId).then(setResumenes)
   }, [epId])
 
+  // Después de descargar la ortesis en la consulta, el reporte se rearma solo.
+  const recargarResumenes = async () => {
+    if (epId) setResumenes(await fuente.resumenesDe(epId))
+  }
+
   const ep = episodios?.find((e) => e.id === epId)
   const dias = useMemo(
     () => (resumenes ?? []).map(indices).sort((a, b) => a.fecha.localeCompare(b.fecha)),
@@ -150,7 +155,7 @@ export default function Reporte({ paciente, onCambio }) {
             </>
           )}
 
-          {!ep.fin && <Consultorio episodio={ep} onCerrado={onCambio} />}
+          {!ep.fin && <Consultorio episodio={ep} onCerrado={onCambio} onDatos={recargarResumenes} />}
         </>
       )}
     </article>

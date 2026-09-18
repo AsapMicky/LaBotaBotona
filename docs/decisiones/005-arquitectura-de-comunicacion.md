@@ -73,9 +73,8 @@ Por eso:
 - En la app, `Dispositivo` es una interfaz abstracta con cinco métodos. `DispositivoBle` y
   `DispositivoSimulado` la implementan. Un hipotético `DispositivoWifi` entra sin tocar ni la
   interfaz de usuario ni la subida a Supabase.
-- **Pendiente:** partir `protocolo.dart` en `modelo.dart` (las clases y su `aJson()`) y
-  `codec_ble.dart` (la lectura de bytes). Hoy están juntos; mientras el único transporte sea
-  BLE no molesta, pero la separación es lo que hace barato el cambio.
+- `protocolo.dart` está partido en `modelo.dart` (las clases y su `aJson()`) y `codec_ble.dart`
+  (la lectura de bytes). Esa separación es la que hace barato cambiar de transporte.
 - El `aJson()` de esas clases es el puente a la nube: el mismo objeto que sale del BLE es el que
   se sube. No hay una segunda definición del dato en ningún lado.
 
@@ -91,13 +90,27 @@ Sin esto se pierden días de registro en cualquier paciente con mala conexión, 
 situación normal y no la excepción. La subida es idempotente (`upsert` por episodio y fecha),
 así que reintentar no duplica.
 
-## Qué falta implementar
+## Estado (18/9/2026)
 
-1. Crear el proyecto en Supabase y correr la migración. **Bloquea todo lo demás.**
-2. Web: login real del médico y alta escribiendo en Supabase (ya abstraído en `src/datos/fuente.js`).
-3. App: pantalla de escaneo del QR y guardado del token en el celular.
-4. App: cola local y subida vía `subir-datos`.
-5. Empaquetar la app como `.apk` para repartirla sin cables ni depuración USB.
+Los dos caminos están implementados y el de la app se probó punta a punta con un teléfono real.
+
+1. ✅ Proyecto en Supabase con el esquema, los datos de prueba y `subir-datos` desplegada.
+2. ✅ Web: login real del médico y alta escribiendo en Supabase, con el QR del `token_sync`.
+3. ✅ App: escaneo del QR y token guardado en el celular.
+4. ✅ App: cola local y subida vía `subir-datos`, con reintentos.
+5. ✅ `.apk` de release para repartir sin cables.
+6. ✅ Web: descarga de la ortesis en la consulta (Web Bluetooth) y subida por `subir-datos`,
+   con el token del episodio. La web tampoco escribe directo contra la base.
+
+Falta la persistencia real en el equipo: hoy los resúmenes de días cerrados y los registros por
+minuto viven en RAM. Es la tarea de LittleFS del Avance 4.
+
+## Los dos caminos escriben por la misma puerta
+
+Ni la app ni la web escriben en `resumenes_diarios` ni en `registros_minuto`: las policies no lo
+permiten. Las dos llaman a `subir-datos` con el `token_sync` del episodio, y la función valida y
+escribe con la service-role key. Una sola puerta, una sola validación, un solo lugar donde mirar
+si algo no entra.
 
 ## Para discutir con el grupo y la cátedra
 

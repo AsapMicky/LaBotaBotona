@@ -158,4 +158,17 @@ export const fuenteMock = {
     const e = episodios.find((x) => x.id === id)
     if (e) e.fin = iso(0)
   },
+
+  // Imita a la función `subir-datos`: valida el token y hace upsert por fecha.
+  async subirDesdeOrtesis(token, { resumenes = [], registros = [] }) {
+    await espera()
+    const ep = episodios.find((e) => e.token_sync === token && !e.fin)
+    if (!ep) throw new Error('Episodio inexistente o cerrado')
+    for (const r of resumenes) {
+      const i = ep.resumenes.findIndex((x) => x.fecha === r.fecha)
+      if (i >= 0) ep.resumenes[i] = r
+      else ep.resumenes.push(r)
+    }
+    return { ok: true, resumenes: resumenes.length, registros: registros.length }
+  },
 }
