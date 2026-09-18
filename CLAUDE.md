@@ -14,6 +14,7 @@ revisa entre consultas. El foco de ingeniería es que el indicador sea **confiab
 
 ## Mapa del repo
 - `docs/protocolo-ble.md` — **el contrato** entre firmware y apps. Es la fuente de verdad.
+- `docs/protocolo-vectores.json` — paquetes de ejemplo en hexa; los tests de C++ y de Dart los leen los dos.
 - `docs/modelo-datos.md`, `docs/decisiones/` — modelo y justificaciones (van al informe).
 - `firmware/lib/dosimetria` — cálculo de dosis. C++ puro, sin Arduino, testeable en PC.
 - `firmware/lib/protocolo` — serialización de los paquetes BLE.
@@ -46,5 +47,6 @@ C(t) = carga en %PC (porcentaje del peso corporal). L = límite superior, Lmin =
 - Las métricas se calculan en el microcontrolador; las apps solo las muestran.
 - Un límite enviado por BLE queda *pendiente* hasta confirmarse con el pulsador del equipo.
 - No se guarda señal cruda en la flash: agregados por minuto (ver `docs/decisiones/003`).
-- Cambios al protocolo: actualizar doc + `firmware/lib/protocolo` + `app-paciente/lib/dispositivo/codec_ble.dart` + tests en el mismo PR.
+- Cambios al protocolo: actualizar doc + `docs/protocolo-vectores.json` + `firmware/lib/protocolo` +
+  `app-paciente/lib/dispositivo/codec_ble.dart` + tests en el mismo PR.
 - Antes de proponer un PR, correr los tests del módulo tocado.

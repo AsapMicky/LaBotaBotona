@@ -7,6 +7,11 @@ transmiten en décimas de %PC (`x10`) para evitar flotantes.
 **Nombre anunciado:** `DOSI-<serie>` (ej. `DOSI-0003`)
 **MTU:** la app pide 247.
 
+**Vectores de referencia:** `docs/protocolo-vectores.json` tiene paquetes de ejemplo en hexa con sus
+valores. Los verifican `firmware/test/test_protocolo` (codifica y compara bytes) y
+`app-paciente/test/vectores_test.dart` (decodifica y compara valores). Cualquier cambio a este documento
+va con los vectores, el firmware, la app y los tests en el mismo commit.
+
 | Característica | UUID | Propiedades | Tamaño |
 |---|---|---|---|
 | Estado en vivo | `6f1a0001-…` | read, notify (1 Hz) | 8 B |

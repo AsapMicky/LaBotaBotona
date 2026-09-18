@@ -1,0 +1,298 @@
+{
+  "_comentario": "Vectores de referencia del protocolo BLE v1 (docs/protocolo-ble.md). Los leen firmware/test/test_protocolo (el firmware codifica y compara los bytes) y app-paciente/test/vectores_test.dart (la app decodifica los bytes y compara los valores). Si cambia el protocolo, cambiar este archivo en el mismo commit. Bytes en hexa, little-endian.",
+  "version_protocolo": 1,
+  "estado": [
+    {
+      "nombre": "exceso con límite pendiente (mismo caso que test_codificacion_estado)",
+      "bytes": "01 03 01 00 4C 02 66 03",
+      "entrada": {
+        "regimen": 3,
+        "excedencias": 1,
+        "bateria": 76,
+        "flags": 2,
+        "t_carga_s": 100,
+        "t_exceso_s": 13
+      },
+      "esperado": {
+        "regimen": 3,
+        "excedencias_hoy": 1,
+        "bateria": 76,
+        "cargando": false,
+        "limite_pendiente": true,
+        "sin_hora": false,
+        "sin_episodio": false,
+        "cumplimiento_hoy": 87.0
+      }
+    },
+    {
+      "nombre": "sin apoyo todavía: cumplimiento 0xFFFF",
+      "bytes": "01 00 00 00 64 00 FF FF",
+      "entrada": {
+        "regimen": 0,
+        "excedencias": 0,
+        "bateria": 100,
+        "flags": 0,
+        "t_carga_s": 0,
+        "t_exceso_s": 0
+      },
+      "esperado": {
+        "regimen": 0,
+        "excedencias_hoy": 0,
+        "bateria": 100,
+        "cargando": false,
+        "limite_pendiente": false,
+        "sin_hora": false,
+        "sin_episodio": false,
+        "cumplimiento_hoy": null
+      }
+    },
+    {
+      "nombre": "en ventana, cargando, sin hora y sin episodio",
+      "bytes": "01 02 0C 00 05 0D CF 03",
+      "entrada": {
+        "regimen": 2,
+        "excedencias": 12,
+        "bateria": 5,
+        "flags": 13,
+        "t_carga_s": 3600,
+        "t_exceso_s": 90
+      },
+      "esperado": {
+        "regimen": 2,
+        "excedencias_hoy": 12,
+        "bateria": 5,
+        "cargando": true,
+        "limite_pendiente": false,
+        "sin_hora": true,
+        "sin_episodio": true,
+        "cumplimiento_hoy": 97.5
+      }
+    },
+    {
+      "nombre": "subcarga con muchas excedencias",
+      "bytes": "01 01 2C 01 32 00 F4 01",
+      "entrada": {
+        "regimen": 1,
+        "excedencias": 300,
+        "bateria": 50,
+        "flags": 0,
+        "t_carga_s": 7200,
+        "t_exceso_s": 3600
+      },
+      "esperado": {
+        "regimen": 1,
+        "excedencias_hoy": 300,
+        "bateria": 50,
+        "cargando": false,
+        "limite_pendiente": false,
+        "sin_hora": false,
+        "sin_episodio": false,
+        "cumplimiento_hoy": 50.0
+      }
+    }
+  ],
+  "resumen": [
+    {
+      "nombre": "día con datos (mismo caso que protocolo_test.dart)",
+      "bytes": "80 8A A8 6A 00 00 3B 43 00 00 48 41 64 00 00 00 0D 00 00 00 14 00 00 00 9A 01 17 00",
+      "entrada": {
+        "inicio_dia": 1789430400,
+        "dosis_sobrecarga": 187.0,
+        "dosis_subcarga": 12.5,
+        "t_carga_s": 100,
+        "t_exceso_s": 13,
+        "t_sub_s": 20,
+        "pico": 41.0,
+        "excedencias": 23
+      },
+      "esperado": {
+        "inicio_dia": 1789430400,
+        "dosis_sobrecarga": 187.0,
+        "dosis_subcarga": 12.5,
+        "t_carga_s": 100,
+        "t_exceso_s": 13,
+        "t_sub_s": 20,
+        "pico": 41.0,
+        "excedencias": 23,
+        "t_ventana_s": 67,
+        "cumplimiento": 87.0,
+        "permanencia": 67.0
+      }
+    },
+    {
+      "nombre": "día sin apoyo",
+      "bytes": "00 DC A9 6A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "entrada": {
+        "inicio_dia": 1789516800,
+        "dosis_sobrecarga": 0.0,
+        "dosis_subcarga": 0.0,
+        "t_carga_s": 0,
+        "t_exceso_s": 0,
+        "t_sub_s": 0,
+        "pico": 0.0,
+        "excedencias": 0
+      },
+      "esperado": {
+        "inicio_dia": 1789516800,
+        "dosis_sobrecarga": 0.0,
+        "dosis_subcarga": 0.0,
+        "t_carga_s": 0,
+        "t_exceso_s": 0,
+        "t_sub_s": 0,
+        "pico": 0.0,
+        "excedencias": 0,
+        "t_ventana_s": 0,
+        "cumplimiento": null,
+        "permanencia": null
+      }
+    },
+    {
+      "nombre": "pico con redondeo a décimas",
+      "bytes": "80 2D AB 6A 00 00 80 3E 00 00 70 40 28 23 00 00 62 02 00 00 84 03 00 00 5A 01 07 00",
+      "entrada": {
+        "inicio_dia": 1789603200,
+        "dosis_sobrecarga": 0.25,
+        "dosis_subcarga": 3.75,
+        "t_carga_s": 9000,
+        "t_exceso_s": 610,
+        "t_sub_s": 900,
+        "pico": 34.56,
+        "excedencias": 7
+      },
+      "esperado": {
+        "inicio_dia": 1789603200,
+        "dosis_sobrecarga": 0.25,
+        "dosis_subcarga": 3.75,
+        "t_carga_s": 9000,
+        "t_exceso_s": 610,
+        "t_sub_s": 900,
+        "pico": 34.6,
+        "excedencias": 7,
+        "t_ventana_s": 7490,
+        "cumplimiento": 93.22222222222221,
+        "permanencia": 83.22222222222221
+      }
+    }
+  ],
+  "registro": [
+    {
+      "nombre": "mismo caso que test_codificacion_registro",
+      "bytes": "60 9A A9 6A B7 00 9A 01 FA 00 03 0A",
+      "entrada": {
+        "ts": 1789500000,
+        "carga_media": 18.34,
+        "carga_pico": 41.0,
+        "dosis": 2.5,
+        "excedencias": 3,
+        "seg_apoyo": 42
+      },
+      "esperado": {
+        "ts": 1789500000,
+        "carga_media": 18.3,
+        "carga_pico": 41.0,
+        "dosis": 2.5,
+        "excedencias": 3,
+        "seg_apoyo": 40
+      }
+    },
+    {
+      "nombre": "minuto sin apoyo",
+      "bytes": "9C 9A A9 6A 00 00 00 00 00 00 00 00",
+      "entrada": {
+        "ts": 1789500060,
+        "carga_media": 0.0,
+        "carga_pico": 0.0,
+        "dosis": 0.0,
+        "excedencias": 0,
+        "seg_apoyo": 0
+      },
+      "esperado": {
+        "ts": 1789500060,
+        "carga_media": 0.0,
+        "carga_pico": 0.0,
+        "dosis": 0.0,
+        "excedencias": 0,
+        "seg_apoyo": 0
+      }
+    },
+    {
+      "nombre": "minuto completo con apoyo (60 s → 15 → 60)",
+      "bytes": "D8 9A A9 6A DC 00 63 01 D2 04 01 0F",
+      "entrada": {
+        "ts": 1789500120,
+        "carga_media": 22.0,
+        "carga_pico": 35.5,
+        "dosis": 12.34,
+        "excedencias": 1,
+        "seg_apoyo": 60
+      },
+      "esperado": {
+        "ts": 1789500120,
+        "carga_media": 22.0,
+        "carga_pico": 35.5,
+        "dosis": 12.34,
+        "excedencias": 1,
+        "seg_apoyo": 60
+      }
+    }
+  ],
+  "paquete_historial": [
+    {
+      "nombre": "fin de transmisión",
+      "bytes": "FF FF",
+      "esperado": {
+        "secuencia": 65535,
+        "cantidad": 0
+      }
+    },
+    {
+      "nombre": "secuencia 0 con dos registros",
+      "bytes": "00 00 60 9A A9 6A B7 00 9A 01 FA 00 03 0A 9C 9A A9 6A 00 00 00 00 00 00 00 00",
+      "esperado": {
+        "secuencia": 0,
+        "cantidad": 2,
+        "registros": [
+          "mismo caso que test_codificacion_registro",
+          "minuto sin apoyo"
+        ]
+      }
+    },
+    {
+      "nombre": "secuencia 7 con un registro",
+      "bytes": "07 00 60 9A A9 6A B7 00 9A 01 FA 00 03 0A",
+      "esperado": {
+        "secuencia": 7,
+        "cantidad": 1,
+        "registros": [
+          "mismo caso que test_codificacion_registro"
+        ]
+      }
+    }
+  ],
+  "pedido_historial": [
+    {
+      "nombre": "desde el 16/9/2026 12:00 UTC",
+      "desde": 1789560000,
+      "bytes": "01 C0 84 AA 6A"
+    },
+    {
+      "nombre": "desde el epoch 0",
+      "desde": 0,
+      "bytes": "01 00 00 00 00"
+    }
+  ],
+  "hora": [
+    {
+      "nombre": "Argentina (−180 min)",
+      "epoch": 1789560000,
+      "offset_min": -180,
+      "bytes": "C0 84 AA 6A 4C FF"
+    },
+    {
+      "nombre": "UTC",
+      "epoch": 1789560000,
+      "offset_min": 0,
+      "bytes": "C0 84 AA 6A 00 00"
+    }
+  ]
+}
