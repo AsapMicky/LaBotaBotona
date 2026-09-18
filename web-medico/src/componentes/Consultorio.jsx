@@ -4,12 +4,14 @@ import { fuente } from '../datos/fuente.js'
 import { fmt } from '../datos/indices.js'
 
 // Acciones en la consulta con la ortesis al lado de la computadora.
-export default function Consultorio({ episodio, onCerrado }) {
+// Es el camino que funciona aunque el paciente nunca haya instalado la app.
+export default function Consultorio({ episodio, onCerrado, onDatos }) {
   const [ortesis, setOrtesis] = useState(null)
   const [info, setInfo] = useState(null)
   const [hoy, setHoy] = useState(null)
   const [mensaje, setMensaje] = useState(null)
   const [error, setError] = useState(null)
+  const [bajando, setBajando] = useState(null)
 
   async function accion(fn) {
     setError(null); setMensaje(null)
@@ -23,8 +25,34 @@ export default function Consultorio({ episodio, onCerrado }) {
     setHoy(await o.leerResumenHoy())
   })
 
+  const descargar = () => accion(async () => {
+    setBajando('Leyendo los días guardados…')
+    try {
+      const cerrados = await ortesis.descargarResumenes(new Date(0), (n) => setBajando(`${n} días leídos…`))
+      const delDia = await ortesis.leerResumenHoy()
+      setHoy(delDia)
+      // Un upsert no puede tocar dos veces la misma fila: una fecha, un resumen.
+      // El día en curso va último, así pisa cualquier versión parcial del mismo día.
+      const porFecha = new Map([...cerrados, delDia].map((r) => [r.fecha, r]))
+
+      setBajando('Leyendo el detalle minuto a minuto…')
+      const registros = await ortesis.descargarHistorial(new Date(0), (n) => setBajando(`${n} minutos leídos…`))
+
+      setBajando('Enviando al servidor…')
+      const r = await fuente.subirDesdeOrtesis(episodio.token_sync, {
+        resumenes: [...porFecha.values()],
+        registros,
+      })
+      setMensaje(`Descarga lista: ${r.resumenes} ${r.resumenes === 1 ? 'día' : 'días'} y ${r.registros} minutos de registro.`)
+      await onDatos?.()
+    } finally {
+      setBajando(null)
+    }
+  })
+
   const idCorto = episodio.id.replace(/-/g, '').slice(0, 16)
   const coincide = info && info.episodio === idCorto
+  const ocupado = bajando != null
 
   return (
     <section className="bloque consultorio">
@@ -46,19 +74,23 @@ export default function Consultorio({ episodio, onCerrado }) {
             </p>
           )}
           <div className="acciones">
+            <button className="primario" disabled={ocupado || !coincide} onClick={descargar}
+              title={coincide ? 'Trae todo lo que la ortesis tenga guardado' : 'Primero asignala a este tratamiento'}>
+              {ocupado ? 'Descargando…' : 'Descargar lo guardado'}
+            </button>
             {!coincide && (
-              <button onClick={() => accion(async () => {
+              <button disabled={ocupado} onClick={() => accion(async () => {
                 await ortesis.escribirEpisodio(episodio.id)
                 setInfo(await ortesis.leerInfo())
                 setMensaje('Ortesis asignada a este tratamiento.')
               })}>Asignar a este tratamiento</button>
             )}
-            <button onClick={() => accion(async () => {
+            <button disabled={ocupado} onClick={() => accion(async () => {
               await ortesis.proponerLimites(episodio)
               setMensaje('Indicación enviada. Pedile al paciente que mantenga apretado el botón de la ortesis 2 segundos para aplicarla.')
             })}>Enviar la indicación actual</button>
-            <button className="peligro" onClick={() => accion(async () => {
-              if (!confirm('Se cierra el tratamiento y se borra la memoria de la ortesis. ¿Seguir?')) return
+            <button className="peligro" disabled={ocupado} onClick={() => accion(async () => {
+              if (!confirm('Se cierra el tratamiento y se borra la memoria de la ortesis. ¿Descargaste los datos primero?')) return
               await ortesis.escribirEpisodio('')
               await fuente.cerrarEpisodio(episodio.id)
               ortesis.desconectar()
@@ -66,6 +98,7 @@ export default function Consultorio({ episodio, onCerrado }) {
               onCerrado?.()
             })}>Registrar devolución</button>
           </div>
+          {bajando && <p className="nota" role="status">{bajando}</p>}
         </div>
       )}
       {mensaje && <p className="ok" role="status">{mensaje}</p>}

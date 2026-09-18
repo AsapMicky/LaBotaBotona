@@ -73,6 +73,28 @@ Ese último punto es el que conviene remarcar: el equipo venía registrando **an
 vinculación, y guarda cada día al pasar la medianoche. La app no es la que mide, es la que transporta.
 Si el paciente pasa una semana sin abrirla, no se pierde nada: cuando la abre, viajan los siete días.
 
+## El otro camino: descargar la ortesis en la consulta
+
+Este no necesita que el paciente tenga la app, ni siquiera un celular. Es el camino "de mínima"
+de la decisión 001, y sirve para mostrar que el sistema funciona con un paciente que nunca
+instaló nada.
+
+Necesita **Chrome o Edge** en una computadora con Bluetooth, y el equipo encendido al lado.
+Firefox y Safari no tienen Web Bluetooth.
+
+1. En el reporte del paciente, abajo de todo, **En la consulta → Conectar la ortesis**. El navegador
+   muestra la lista de equipos: elegir el `DOSI-xxxx` que corresponda.
+2. Aparece a qué tratamiento está asignada y el resumen del día. Si está sin asignar,
+   **Asignar a este tratamiento** primero.
+3. **Descargar lo guardado.** Trae los días cerrados, el día en curso y el detalle minuto a minuto,
+   y lo manda al servidor. El reporte se rearma solo cuando termina.
+4. **Enviar la indicación actual** escribe los límites en el equipo. Ojo: quedan *pendientes* hasta
+   que alguien mantenga apretado el botón de la ortesis dos segundos. Eso es a propósito: ningún
+   cambio remoto mueve el umbral sin una validación presencial.
+
+La descarga usa exactamente la misma puerta que la app, la función `subir-datos` con el token del
+episodio. Ni la web ni la app escriben directo contra la base.
+
 ### Para mostrar el cierre del tratamiento
 
 En el reporte del paciente, cerrar el episodio. La próxima vez que la app intente enviar, el servidor
