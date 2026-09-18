@@ -20,11 +20,13 @@ médico revisa entre consultas.
 
 ## Arranque rápido
 
+**Demostración del circuito completo (web + app + Supabase):** ver `docs/prueba-en-vivo.md`.
+
 **Web del médico (sin nada más instalado que Node 20):**
 ```bash
 cd web-medico && npm install && npm run dev
 ```
-Sin variables de entorno usa datos simulados. Con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en `.env.local` usa Supabase.
+Sin variables de entorno usa datos simulados. Con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en `.env.local` usa Supabase (ver `backend/README.md`).
 
 **Tests de la lógica de dosis (sin placa):**
 ```bash

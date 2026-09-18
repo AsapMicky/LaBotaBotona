@@ -45,7 +45,10 @@ class _AppPacienteState extends State<AppPaciente> {
   @override
   void initState() {
     super.initState();
-    _vinculacion.cargar().then((_) => _sincronizador.iniciar());
+    // El sincronizador primero: deja puestas las suscripciones antes de que el equipo
+    // se conecte o termine de leerse la vinculación, así no se pierde ningún evento.
+    _sincronizador.iniciar();
+    _vinculacion.cargar();
   }
 
   @override

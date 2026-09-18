@@ -14,12 +14,13 @@ export default function Panel({ usuario, onSalir }) {
   const cargar = useCallback(async (elegir) => {
     const lista = await fuente.listarPacientes()
     setPacientes(lista)
+    // Elegir antes de las tendencias: si no, mientras cargan se ve "todavía no hay pacientes".
+    setSeleccion((s) => elegir ?? s ?? lista[0]?.id ?? null)
     const t = {}
     await Promise.all(lista.filter((p) => p.episodioActual).map(async (p) => {
       t[p.id] = tendencia(await fuente.resumenesDe(p.episodioActual.id))
     }))
     setTendencias(t)
-    setSeleccion((s) => elegir ?? s ?? lista[0]?.id ?? null)
   }, [])
 
   useEffect(() => { cargar() }, [cargar])

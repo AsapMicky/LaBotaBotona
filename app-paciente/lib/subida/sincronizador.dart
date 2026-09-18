@@ -22,7 +22,9 @@ class Sincronizador extends ChangeNotifier {
   StreamSubscription<EstadoConexion>? _sub;
   Timer? _reintento;
   Timer? _periodico;
+  Future<void>? _colaLista;
   bool _subiendo = false;
+  bool _pedidoPendiente = false;
   bool _leyendoEquipo = false;
   int _intentos = 0;
   String? _ultimoError;
@@ -54,13 +56,17 @@ class Sincronizador extends ChangeNotifier {
   int get registrosPendientes => _cola.registrosPendientes;
   DateTime? get ultimaSubida => _cola.ultimaSubida;
 
+  /// Suscribirse es lo primero y es sincrónico: `conexion` es un stream broadcast,
+  /// así que si el equipo se conecta antes, ese evento se pierde y nunca se baja nada.
+  /// La cola se carga en paralelo; quien la necesita espera a [_colaLista].
   Future<void> iniciar() async {
-    await _cola.cargar();
     _sub = _dispositivo.conexion.listen((c) {
       if (c == EstadoConexion.conectado) descargarYSubir();
     });
     _periodico = Timer.periodic(_cadaTanto, (_) => subirAhora());
     _vinculacion.addListener(_alCambiarVinculacion);
+    _colaLista = _cola.cargar();
+    await _colaLista;
     notifyListeners();
     await subirAhora();
   }
@@ -73,6 +79,7 @@ class Sincronizador extends ChangeNotifier {
   /// Baja del equipo el resumen del día y el historial nuevo, los encola y sube.
   Future<void> descargarYSubir() async {
     if (_leyendoEquipo) return;
+    await _colaLista; // no encolar sobre una cola a medio cargar: pisaría lo pendiente
     _leyendoEquipo = true;
     try {
       await _cola.encolarResumen(await _dispositivo.leerResumen());
@@ -94,12 +101,19 @@ class Sincronizador extends ChangeNotifier {
   Future<void> subirAhora() async {
     final cliente = _cliente;
     final token = _vinculacion.token;
-    if (_subiendo || cliente == null || token == null) return;
+    if (cliente == null || token == null) return;
     if (_vinculacion.estado == EstadoVinculacion.revocada) return;
+    // Si ya hay una subida en curso, anotar el pedido en vez de descartarlo: si no,
+    // lo que se encoló mientras tanto se queda esperando al próximo tic.
+    if (_subiendo) {
+      _pedidoPendiente = true;
+      return;
+    }
     _subiendo = true;
     _reintento?.cancel();
     notifyListeners();
     try {
+      await _colaLista;
       while (true) {
         final lote = _cola.tomarLote();
         if (lote.vacio && _tokenVerificado == token) break;
@@ -124,6 +138,10 @@ class Sincronizador extends ChangeNotifier {
     } finally {
       _subiendo = false;
       notifyListeners();
+    }
+    if (_pedidoPendiente) {
+      _pedidoPendiente = false;
+      await subirAhora();
     }
   }
 

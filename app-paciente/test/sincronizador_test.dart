@@ -112,6 +112,19 @@ void main() {
     s.dispose();
   });
 
+  test('no se pierde la conexión que ocurre apenas arranca', () async {
+    await vinculacion.vincular(token);
+    final s = armar(ok);
+    final arrancando = s.iniciar(); // sin await: el equipo se conecta mientras carga la cola
+    equipo.conectado();
+    await arrancando;
+    await respirar();
+    expect(equipo.lecturas, 1, reason: 'tendría que haber leído el equipo igual');
+    expect(s.diasPendientes, 0);
+    expect(recibidos.any((c) => (c['resumenes'] as List).isNotEmpty), isTrue);
+    s.dispose();
+  });
+
   test('la próxima descarga pide el historial desde el último minuto subido', () async {
     await vinculacion.vincular(token);
     final s = armar(ok);

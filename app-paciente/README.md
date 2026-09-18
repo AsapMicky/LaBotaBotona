@@ -29,6 +29,12 @@ Sin `SUPABASE_URL` la app no sube nada y todo queda en el celular (sirve para di
 Supabase: `node scripts/subir-datos-falso.mjs` en la PC y correr la app con
 `--dart-define=SUPABASE_URL=http://10.0.2.2:8787` (emulador) o la IP de la PC (celular en la misma red).
 
+Para probar el backend real desde la PC, sin compilar para Android, con el mismo cliente que usa la app:
+
+```bash
+dart run tool/probar_subida.dart https://xxxx.supabase.co <token_del_QR>
+```
+
 Ver el README raíz y `docs/puesta-en-marcha-windows.md` para correrla.
 
 ## Pendiente

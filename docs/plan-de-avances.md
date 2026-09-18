@@ -3,14 +3,14 @@
 ## Avance 1 — Contrato y maquetas
 - [ ] Revisar y cerrar `protocolo-ble.md` entre los tres
 - [ ] Discutir las decisiones 001–004 y llevarlas al profe
-- [ ] Crear proyecto en Supabase y correr la migración
+- [x] Crear proyecto en Supabase y correr la migración
 - [x] Web del médico corriendo con datos simulados
 - [x] App del paciente corriendo en modo simulado
 
 ## Avance 2 — Apps con datos
-- [ ] Web: login real de médico con Supabase
-- [ ] Web: alta de paciente y apertura de episodio
-- [ ] Web: reporte leyendo de Supabase
+- [x] Web: login real de médico con Supabase
+- [x] Web: alta de paciente y apertura de episodio (con QR del `token_sync`)
+- [x] Web: reporte leyendo de Supabase
 - [x] App: pantalla de vinculación por QR
 - [ ] App: resumen del día
 
