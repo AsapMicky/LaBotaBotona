@@ -17,8 +17,10 @@ Nunca muestra valores de carga (pedido de la cátedra).
 
 ## Cómo se sube
 
-1. Cuando el equipo se conecta, el sincronizador lee el resumen del día y el historial desde el último minuto
-   confirmado, y lo encola en el teléfono.
+1. Cuando el equipo se conecta, el sincronizador le pide tres cosas y las encola en el teléfono: el resumen
+   del día en curso, los resúmenes de los días ya cerrados que todavía no bajó, y los registros por minuto
+   desde el último confirmado. Los días cerrados son los que tapan el hueco cuando el paciente pasa días
+   sin abrir la app: el equipo los guarda solo, al pasar cada medianoche.
 2. Si hay token y servidor, manda `{token, resumenes, registros}` a `subir-datos`. El servidor hace upsert por
    (episodio, fecha) y (episodio, minuto): reintentar nunca duplica.
 3. Si falla (sin señal, servidor caído), reintenta con espera creciente (30 s … 15 min). Nada se borra hasta que

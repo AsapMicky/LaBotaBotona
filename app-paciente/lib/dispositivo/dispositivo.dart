@@ -10,7 +10,14 @@ abstract class Dispositivo {
 
   Future<void> conectar();
   Future<void> desconectar();
+
+  /// El día **en curso**, que el equipo todavía está acumulando.
   Future<ResumenDiario> leerResumen();
+
+  /// Los días ya **cerrados** con `inicio del día ≥ desde`. El equipo los guarda al
+  /// pasar la medianoche, así el médico no pierde los días en que nadie abrió la app.
+  Future<List<ResumenDiario>> descargarResumenes(DateTime desde);
+
   Future<List<RegistroMinuto>> descargarHistorial(DateTime desde);
   void liberar();
 }

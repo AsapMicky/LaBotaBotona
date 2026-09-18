@@ -87,6 +87,24 @@ void main() {
     expect(cola.tomarLote().registros, hasLength(ColaSubida.maxRegistrosPorLote));
   });
 
+  test('los días cerrados pisan la versión parcial y avanzan ultimoDiaCerrado', () async {
+    final almacen = AlmacenMemoria();
+    final cola = ColaSubida(almacen);
+    // Durante el día se subió una versión parcial del día 1
+    await cola.encolarResumen(resumen(dia1, tExceso: 10));
+    expect(cola.ultimoDiaCerrado, isNull);
+
+    // Al día siguiente el equipo entrega ese día ya cerrado
+    await cola.encolarResumenes([resumen(dia1, tExceso: 40), resumen(dia2, tExceso: 5)]);
+    expect(cola.diasPendientes, 2, reason: 'sigue siendo un resumen por fecha');
+    expect(cola.tomarLote().resumenes.firstWhere((r) => r['fecha'] == '2026-09-16')['t_exceso_s'], 40);
+    expect(cola.ultimoDiaCerrado, dia2);
+
+    final cola2 = ColaSubida(almacen);
+    await cola2.cargar();
+    expect(cola2.ultimoDiaCerrado, dia2, reason: 'se persiste para no volver a pedirlos');
+  });
+
   test('un almacén corrupto arranca vacío', () async {
     final almacen = AlmacenMemoria();
     await almacen.escribir('cola_subida', '{rota');

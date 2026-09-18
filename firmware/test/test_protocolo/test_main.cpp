@@ -79,19 +79,23 @@ void test_estado() {
   }
 }
 
+static Acumulado acumuladoDesde(JsonObject in) {
+  Acumulado a;
+  a.dosisSobrecarga = in["dosis_sobrecarga"].as<double>();
+  a.dosisSubcarga = in["dosis_subcarga"].as<double>();
+  a.tCarga_s = in["t_carga_s"].as<double>();
+  a.tExceso_s = in["t_exceso_s"].as<double>();
+  a.tSub_s = in["t_sub_s"].as<double>();
+  a.pico = in["pico"].as<float>();
+  a.excedencias = in["excedencias"];
+  return a;
+}
+
 void test_resumen() {
   for (JsonObject v : doc["resumen"].as<JsonArray>()) {
     JsonObject in = v["entrada"];
-    Acumulado a;
-    a.dosisSobrecarga = in["dosis_sobrecarga"].as<double>();
-    a.dosisSubcarga = in["dosis_subcarga"].as<double>();
-    a.tCarga_s = in["t_carga_s"].as<double>();
-    a.tExceso_s = in["t_exceso_s"].as<double>();
-    a.tSub_s = in["t_sub_s"].as<double>();
-    a.pico = in["pico"].as<float>();
-    a.excedencias = in["excedencias"];
     uint8_t b[proto::TAM_RESUMEN];
-    proto::codificarResumen(b, in["inicio_dia"].as<uint32_t>(), a);
+    proto::codificarResumen(b, in["inicio_dia"].as<uint32_t>(), acumuladoDesde(in));
     compararBytes(v["nombre"], desdeHexa(v["bytes"]), b, sizeof b);
   }
 }
@@ -145,12 +149,51 @@ void test_paquete_historial() {
   }
 }
 
-// Estos dos los escribe la app y los DECODIFICA el firmware (callbacks de main.cpp).
+// Resúmenes de días cerrados (0008): mismo armado que el historial, con registros de 28 B.
+void test_paquete_resumenes() {
+  for (JsonObject v : doc["paquete_resumenes"].as<JsonArray>()) {
+    std::vector<uint8_t> b = desdeHexa(v["bytes"]);
+    JsonObject esp = v["esperado"];
+    TEST_ASSERT_EQUAL_UINT16(esp["secuencia"].as<uint16_t>(), proto::get16(b.data()));
+    size_t n = (b.size() - 2) / proto::TAM_RESUMEN;
+    TEST_ASSERT_EQUAL_size_t(esp["cantidad"].as<size_t>(), n);
+    TEST_ASSERT_EQUAL_size_t(2 + n * proto::TAM_RESUMEN, b.size());
+    TEST_ASSERT_TRUE_MESSAGE(n <= proto::RESUMENES_POR_PAQUETE, "no entra en una notificación");
+    if (esp["secuencia"].as<uint16_t>() == proto::SEQ_FIN) TEST_ASSERT_EQUAL_size_t(0, n);
+    for (size_t i = 0; i < n; i++) {
+      const char* nombre = esp["resumenes"][i];
+      bool hallado = false;
+      for (JsonObject r : doc["resumen"].as<JsonArray>()) {
+        if (std::string(nombre) == r["nombre"].as<const char*>()) {
+          JsonObject in = r["entrada"];
+          uint8_t rb[proto::TAM_RESUMEN];
+          proto::codificarResumen(rb, in["inicio_dia"].as<uint32_t>(), acumuladoDesde(in));
+          compararBytes(nombre, std::vector<uint8_t>(b.begin() + 2 + i * proto::TAM_RESUMEN,
+                                                     b.begin() + 2 + (i + 1) * proto::TAM_RESUMEN),
+                        rb, proto::TAM_RESUMEN);
+          hallado = true;
+        }
+      }
+      TEST_ASSERT_TRUE_MESSAGE(hallado, "resumen del paquete no está en la lista de vectores");
+    }
+  }
+}
+
+// Estos los escribe la app y los DECODIFICA el firmware (callbacks de main.cpp).
 void test_pedido_historial() {
   for (JsonObject v : doc["pedido_historial"].as<JsonArray>()) {
     std::vector<uint8_t> b = desdeHexa(v["bytes"]);
     TEST_ASSERT_EQUAL_size_t(5, b.size());
-    TEST_ASSERT_EQUAL_UINT8(1, b[0]);  // op = 1: enviar desde
+    TEST_ASSERT_EQUAL_UINT8(proto::OP_HISTORIAL, b[0]);
+    TEST_ASSERT_EQUAL_UINT32(v["desde"].as<uint32_t>(), proto::get32(b.data() + 1));
+  }
+}
+
+void test_pedido_resumenes() {
+  for (JsonObject v : doc["pedido_resumenes"].as<JsonArray>()) {
+    std::vector<uint8_t> b = desdeHexa(v["bytes"]);
+    TEST_ASSERT_EQUAL_size_t(5, b.size());
+    TEST_ASSERT_EQUAL_UINT8(proto::OP_RESUMENES, b[0]);
     TEST_ASSERT_EQUAL_UINT32(v["desde"].as<uint32_t>(), proto::get32(b.data() + 1));
   }
 }
@@ -171,7 +214,9 @@ int main() {
   RUN_TEST(test_resumen);
   RUN_TEST(test_registro);
   RUN_TEST(test_paquete_historial);
+  RUN_TEST(test_paquete_resumenes);
   RUN_TEST(test_pedido_historial);
+  RUN_TEST(test_pedido_resumenes);
   RUN_TEST(test_hora);
   return UNITY_END();
 }

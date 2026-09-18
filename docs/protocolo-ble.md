@@ -21,6 +21,7 @@ va con los vectores, el firmware, la app y los tests en el mismo commit.
 | Configuración | `6f1a0005-…` | read, write | R 13 B / W 6 B |
 | Hora | `6f1a0006-…` | write | 6 B |
 | Info y episodio | `6f1a0007-…` | read, write | R 32 B / W 16 B |
+| Resúmenes de días cerrados | `6f1a0008-…` | notify | 2 + 28·n B |
 
 (Los UUID completos reemplazan `0000` del servicio por el número de la característica.)
 
@@ -51,13 +52,25 @@ No incluye la carga instantánea a propósito: el paciente no la ve.
 
 Tventana = Tcarga − Texceso − Tsub. Cumplimiento y permanencia se derivan en la app.
 
-## 0003 / 0004 · Historial (registros por minuto)
+## 0003 · Pedidos de descarga
 **Pedido (write 0003, 5 B):** `u8 op` + `u32 desde` (epoch UTC).
-- `op = 1`: enviar todos los registros con `ts ≥ desde`.
-- `op = 2`: cancelar.
+- `op = 1`: enviar los registros por minuto con `ts ≥ desde` (responde por 0004).
+- `op = 2`: cancelar lo que esté en curso.
+- `op = 3`: enviar los resúmenes de días ya cerrados con `inicio del día ≥ desde` (responde por 0008).
 
-**Respuesta (notify 0004):** `u16 secuencia` + hasta 15 registros de 12 B. `secuencia = 0xFFFF` con cero
-registros marca el final.
+## 0004 · Datos de historial (registros por minuto)
+`u16 secuencia` + hasta 15 registros de 12 B. `secuencia = 0xFFFF` con cero registros marca el final.
+
+## 0008 · Resúmenes de días cerrados
+`u16 secuencia` + hasta 8 resúmenes de **28 B, con el mismo formato que 0002**. `secuencia = 0xFFFF`
+con cero resúmenes marca el final.
+
+El equipo cierra el día a medianoche local: guarda el acumulado con su `inicio del día` y reinicia.
+0002 es siempre el día **en curso**; 0008 son los días **terminados**. Entre los dos, el médico recibe
+la serie completa aunque el paciente pase días sin abrir la app, que es la razón de existir de esta
+característica: el registro no puede depender de que alguien sincronice a diario.
+
+Un día sin hora sincronizada no se guarda: sin reloj no se sabe a qué fecha corresponde.
 
 **Registro por minuto (12 B):**
 | Offset | Tipo | Campo |
@@ -86,9 +99,6 @@ cierra el episodio y **borra el historial** (devolución del equipo).
 ## Pendiente para versiones siguientes
 - Emparejamiento con passkey (hoy cualquiera en rango puede leer; aceptable en banco, no en uso real).
 - Guardar historial en LittleFS (hoy está en RAM en el prototipo).
-- **Resúmenes de días anteriores.** La característica 0002 expone solo el día en curso, y a
-  medianoche el equipo reinicia el acumulado. Si el paciente no abre la app un día, ese resumen
-  se pierde: al médico le queda un hueco. Los registros por minuto de ese día sí sobreviven
-  (hasta 3 días en RAM), pero no alcanzan para reconstruirlo: no traen Texceso, Tsub ni la dosis
-  de subcarga, así que no se puede derivar el cumplimiento. Falta decidir cómo exponerlos
-  (una característica nueva, o extender 0003/0004 con resúmenes además de minutos).
+- **Persistencia real.** Hoy tanto los registros por minuto como los resúmenes de días cerrados
+  viven en RAM: sobreviven a la medianoche y a que el paciente no abra la app, pero no a un
+  reinicio ni a que se agote la batería. Pasarlos a LittleFS es la tarea del Avance 4.

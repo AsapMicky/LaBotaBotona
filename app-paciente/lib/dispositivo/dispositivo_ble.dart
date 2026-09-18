@@ -176,35 +176,61 @@ class DispositivoBle implements Dispositivo {
   @override
   Future<ResumenDiario> leerResumen() async => decodificarResumen(await _c(uuidResumen).read());
 
-  @override
-  Future<List<RegistroMinuto>> descargarHistorial(DateTime desde) async {
-    final datos = _c(uuidHistDatos);
-    final registros = <RegistroMinuto>[];
+  /// Descarga por notificaciones: se pide por 0003 y el equipo contesta en paquetes
+  /// numerados por [uuidDatos] hasta mandar el de fin. Igual para minutos y resúmenes.
+  Future<List<T>> _descargar<T>({
+    required String uuidDatos,
+    required List<int> pedido,
+    required (int, List<T>) Function(List<int>) decodificar,
+  }) async {
+    final datos = _c(uuidDatos);
+    final items = <T>[];
     final fin = Completer<void>();
     var esperado = 0;
     final sub = datos.onValueReceived.listen((b) {
-      final (seq, regs) = decodificarPaqueteHistorial(Uint8List.fromList(b));
-      if (seq == seqFin) {
-        if (!fin.isCompleted) fin.complete();
-        return;
+      try {
+        final (seq, parte) = decodificar(Uint8List.fromList(b));
+        if (seq == seqFin) {
+          if (!fin.isCompleted) fin.complete();
+          return;
+        }
+        if (seq != esperado) {
+          if (!fin.isCompleted) {
+            fin.completeError(StateError('Se perdió el paquete $esperado de la descarga'));
+          }
+          return;
+        }
+        esperado++;
+        items.addAll(parte);
+      } on FormatException catch (e) {
+        // Un paquete mal formado corta la descarga; si no, se colgaría hasta el timeout.
+        if (!fin.isCompleted) fin.completeError(e);
       }
-      if (seq != esperado && !fin.isCompleted) {
-        fin.completeError(StateError('Se perdió el paquete $esperado del historial'));
-        return;
-      }
-      esperado++;
-      registros.addAll(regs);
     });
     try {
       await datos.setNotifyValue(true);
-      await _c(uuidHistCtrl).write(codificarPedidoHistorial(desde));
+      await _c(uuidHistCtrl).write(pedido);
       await fin.future.timeout(const Duration(seconds: 60));
     } finally {
       await sub.cancel();
       await datos.setNotifyValue(false);
     }
-    return registros;
+    return items;
   }
+
+  @override
+  Future<List<RegistroMinuto>> descargarHistorial(DateTime desde) => _descargar(
+        uuidDatos: uuidHistDatos,
+        pedido: codificarPedidoHistorial(desde),
+        decodificar: decodificarPaqueteHistorial,
+      );
+
+  @override
+  Future<List<ResumenDiario>> descargarResumenes(DateTime desde) => _descargar(
+        uuidDatos: uuidResumenes,
+        pedido: codificarPedidoResumenes(desde),
+        decodificar: decodificarPaqueteResumenes,
+      );
 
   @override
   Future<void> desconectar() async {

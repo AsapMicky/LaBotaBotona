@@ -16,6 +16,16 @@ static AgregadorMinuto agregador;
 static std::vector<RegistroMinuto> historial;   // TODO(avance 4): LittleFS
 static const size_t HIST_MAX = 1440 * 3;        // 3 días en RAM
 
+// Resúmenes de días ya cerrados (característica 0008). El día en curso no está acá:
+// ese sale de 0002 a partir del acumulado vivo. El equipo tiene que poder pasar días
+// sin ver un celular y no perder nada.
+struct ResumenDia {
+  uint32_t inicioDia;
+  Acumulado acum;
+};
+static std::vector<ResumenDia> resumenes;       // TODO(avance 4): LittleFS
+static const size_t RESUMENES_MAX = 400;        // más de un año de tratamiento
+
 static Limites limitePendiente;
 static bool hayPendiente = false;
 static float pesoActivo_kg = 70.0f, pesoPendiente_kg = 70.0f;
@@ -23,12 +33,14 @@ static bool horaSincronizada = false;
 static int16_t offsetLocal_min = -180;
 static char episodio[16] = {0};
 
-static NimBLECharacteristic* chEstado, *chResumen, *chHistDatos, *chConfig, *chInfo;
+static NimBLECharacteristic* chEstado, *chResumen, *chHistDatos, *chConfig, *chInfo, *chResumenes;
 static bool clienteConectado = false;
 
-// Pedido de historial pendiente de envío (lo atiende loop, no el callback)
+// Pedidos pendientes de envío (los atiende loop, no el callback)
 static volatile bool histPedido = false;
 static uint32_t histDesde = 0;
+static volatile bool resPedido = false;
+static uint32_t resDesde = 0;
 
 // ---------------- Utilidades ----------------
 static uint32_t ahoraEpoch() { return static_cast<uint32_t>(time(nullptr)); }
@@ -128,12 +140,48 @@ static void enviarHistorial() {
   chHistDatos->notify();
 }
 
+static void enviarResumenes() {
+  uint8_t paquete[2 + proto::RESUMENES_POR_PAQUETE * proto::TAM_RESUMEN];
+  uint16_t seq = 0;
+  size_t n = 0;
+  for (const auto& r : resumenes) {
+    if (r.inicioDia < resDesde) continue;
+    proto::codificarResumen(paquete + 2 + n * proto::TAM_RESUMEN, r.inicioDia, r.acum);
+    if (++n == proto::RESUMENES_POR_PAQUETE) {
+      proto::put16(paquete, seq++);
+      chResumenes->setValue(paquete, 2 + n * proto::TAM_RESUMEN);
+      chResumenes->notify();
+      n = 0;
+      delay(8);
+      if (!resPedido || !clienteConectado) return;  // cancelado
+    }
+  }
+  if (n) {
+    proto::put16(paquete, seq++);
+    chResumenes->setValue(paquete, 2 + n * proto::TAM_RESUMEN);
+    chResumenes->notify();
+    delay(8);
+  }
+  proto::put16(paquete, proto::SEQ_FIN);
+  chResumenes->setValue(paquete, 2);
+  chResumenes->notify();
+}
+
+// Cierra el día: guarda el acumulado con su fecha y arranca uno nuevo.
+// Sin hora sincronizada no se guarda: no se sabría a qué día corresponde.
+static void cerrarDia(uint32_t inicioDia) {
+  if (!horaSincronizada) return;
+  if (resumenes.size() >= RESUMENES_MAX) resumenes.erase(resumenes.begin());
+  resumenes.push_back({inicioDia, dosimetro.acumulado()});
+}
+
 // ---------------- Callbacks BLE ----------------
 class ServidorCB : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer*) override { clienteConectado = true; }
   void onDisconnect(NimBLEServer*) override {
     clienteConectado = false;
     histPedido = false;
+    resPedido = false;
     NimBLEDevice::startAdvertising();
   }
 };
@@ -146,8 +194,9 @@ class EscrituraCB : public NimBLECharacteristicCallbacks {
     std::string uuid = c->getUUID().toString();
 
     if (uuid == proto::UUID_HIST_CTRL && n == 5) {
-      if (d[0] == 1) { histDesde = proto::get32(d + 1); histPedido = true; }
-      else if (d[0] == 2) { histPedido = false; }
+      if (d[0] == proto::OP_HISTORIAL) { histDesde = proto::get32(d + 1); histPedido = true; }
+      else if (d[0] == proto::OP_CANCELAR) { histPedido = false; resPedido = false; }
+      else if (d[0] == proto::OP_RESUMENES) { resDesde = proto::get32(d + 1); resPedido = true; }
     } else if (uuid == proto::UUID_CONFIG && n == 6) {
       limitePendiente = dosimetro.limites();
       limitePendiente.L = proto::get16(d) / 10.0f;
@@ -165,6 +214,7 @@ class EscrituraCB : public NimBLECharacteristicCallbacks {
       memcpy(episodio, d, 16);
       if (sinEpisodio()) {          // devolución del equipo
         historial.clear();
+        resumenes.clear();
         dosimetro.reiniciar();
       }
       publicarInfo();
@@ -187,6 +237,7 @@ static void iniciarBLE() {
   chConfig    = s->createCharacteristic(proto::UUID_CONFIG, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   auto* hora  = s->createCharacteristic(proto::UUID_HORA, NIMBLE_PROPERTY::WRITE);
   chInfo      = s->createCharacteristic(proto::UUID_INFO, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+  chResumenes = s->createCharacteristic(proto::UUID_RESUMENES, NIMBLE_PROPERTY::NOTIFY);
 
   for (auto* c : {ctrl, chConfig, hora, chInfo}) c->setCallbacks(&cb);
   s->start();
@@ -246,8 +297,9 @@ void loop() {
     if (historial.size() >= HIST_MAX) historial.erase(historial.begin());
     historial.push_back(agregador.cerrar(minutoEnCurso));
     if (inicioDiaLocal() != diaEnCurso) {
+      cerrarDia(diaEnCurso);   // queda disponible en 0008 hasta que la app lo baje
       diaEnCurso = inicioDiaLocal();
-      dosimetro.reiniciar();   // TODO: guardar el resumen del día anterior
+      dosimetro.reiniciar();
     }
   }
 
@@ -276,5 +328,10 @@ void loop() {
   if (histPedido && clienteConectado) {
     enviarHistorial();
     histPedido = false;
+  }
+
+  if (resPedido && clienteConectado) {
+    enviarResumenes();
+    resPedido = false;
   }
 }

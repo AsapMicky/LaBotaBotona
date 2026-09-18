@@ -25,6 +25,7 @@ class ColaSubida {
   final Map<String, Map<String, Object>> _resumenes = {}; // fecha → aJson
   final Map<String, Map<String, Object>> _registros = {}; // ts ISO → aJson
   DateTime? _ultimoRegistroSubido;
+  DateTime? _ultimoDiaCerrado;
   DateTime? _ultimaSubida;
 
   ColaSubida(this._almacen);
@@ -35,6 +36,12 @@ class ColaSubida {
 
   /// Último minuto confirmado por el servidor: desde ahí se pide el historial la próxima vez.
   DateTime? get ultimoRegistroSubido => _ultimoRegistroSubido;
+
+  /// Último día cerrado que ya se bajó del equipo: desde ahí se piden los resúmenes.
+  /// Se anota al encolar, no al confirmar: si la subida falla, el dato igual quedó en la
+  /// cola y se reintenta, así que no hace falta volver a pedírselo al equipo.
+  DateTime? get ultimoDiaCerrado => _ultimoDiaCerrado;
+
   DateTime? get ultimaSubida => _ultimaSubida;
 
   Future<void> cargar() async {
@@ -49,6 +56,7 @@ class ColaSubida {
         ..clear()
         ..addAll(_mapa(m['registros']));
       _ultimoRegistroSubido = _fecha(m['ultimo_registro_subido']);
+      _ultimoDiaCerrado = _fecha(m['ultimo_dia_cerrado']);
       _ultimaSubida = _fecha(m['ultima_subida']);
     } catch (_) {
       // Dato corrupto: se pierde la cola, no la app. El equipo sigue teniendo el historial.
@@ -70,6 +78,7 @@ class ColaSubida {
           'resumenes': _resumenes,
           'registros': _registros,
           'ultimo_registro_subido': _ultimoRegistroSubido?.toIso8601String(),
+          'ultimo_dia_cerrado': _ultimoDiaCerrado?.toIso8601String(),
           'ultima_subida': _ultimaSubida?.toIso8601String(),
         }),
       );
@@ -78,6 +87,20 @@ class ColaSubida {
   Future<void> encolarResumen(ResumenDiario r) async {
     _resumenes[r.fecha] = r.aJson();
     await _guardar();
+  }
+
+  /// Días ya cerrados que bajaron del equipo. Pisan a la versión parcial que se haya
+  /// subido durante ese día, porque esta es la definitiva.
+  Future<void> encolarResumenes(Iterable<ResumenDiario> rs) async {
+    var hubo = false;
+    for (final r in rs) {
+      _resumenes[r.fecha] = r.aJson();
+      if (_ultimoDiaCerrado == null || r.inicioDia.isAfter(_ultimoDiaCerrado!)) {
+        _ultimoDiaCerrado = r.inicioDia;
+      }
+      hubo = true;
+    }
+    if (hubo) await _guardar();
   }
 
   Future<void> encolarRegistros(Iterable<RegistroMinuto> rs) async {
@@ -119,6 +142,7 @@ class ColaSubida {
     _resumenes.clear();
     _registros.clear();
     _ultimoRegistroSubido = null;
+    _ultimoDiaCerrado = null;
     _ultimaSubida = null;
     await _almacen.borrar(_clave);
   }
