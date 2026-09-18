@@ -11,7 +11,7 @@ médico revisa entre consultas.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `docs/` | Protocolo BLE (el contrato), modelo de datos, decisiones justificadas, plan de avances | listo para discutir |
+| `docs/` | Protocolo BLE (el contrato), modelo de datos, decisiones justificadas, plan de avances, briefing del firmware de la placa | listo para discutir |
 | `firmware/` | ESP32 (PlatformIO). Hoy la carga sale de un **potenciómetro**; la lógica de dosis es la final | esqueleto funcional |
 | `backend/` | Supabase: esquema SQL con permisos por médico, datos de prueba, función de subida | esqueleto |
 | `app-paciente/` | Flutter. Semáforo, excedencias del día, batería. Modo simulado sin hardware | esqueleto |

@@ -14,7 +14,9 @@ revisa entre consultas. El foco de ingeniería es que el indicador sea **confiab
 
 ## Mapa del repo
 - `docs/protocolo-ble.md` — **el contrato** entre firmware y apps. Es la fuente de verdad.
-- `docs/protocolo-vectores.json` — paquetes de ejemplo en hexa; los tests de C++ y de Dart los leen los dos.
+- `docs/protocolo-vectores.json` — paquetes de ejemplo en hexa; los leen los tests de C++, de Dart y de JS.
+- `docs/firmware-placa-real.md` — **briefing para escribir el firmware de la placa.** Leerlo antes de
+  tocar `firmware/` para el hardware real: explica las decisiones tomadas y lo que falta.
 - `docs/modelo-datos.md`, `docs/decisiones/` — modelo y justificaciones (van al informe).
 - `firmware/lib/dosimetria` — cálculo de dosis. C++ puro, sin Arduino, testeable en PC.
 - `firmware/lib/protocolo` — serialización de los paquetes BLE.
