@@ -5,8 +5,9 @@ import 'dart:typed_data';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'codec_ble.dart';
 import 'dispositivo.dart';
-import 'protocolo.dart';
+import 'modelo.dart';
 
 class DispositivoBle implements Dispositivo {
   final _conexion = StreamController<EstadoConexion>.broadcast();
@@ -96,7 +97,7 @@ class DispositivoBle implements Dispositivo {
 
   void _emitirEstado(List<int> b) {
     try {
-      _estado.add(EstadoVivo.desdeBytes(b));
+      _estado.add(decodificarEstado(b));
     } on FormatException catch (e) {
       _estado.addError(e);
     }
@@ -109,7 +110,7 @@ class DispositivoBle implements Dispositivo {
   }
 
   @override
-  Future<ResumenDiario> leerResumen() async => ResumenDiario.desdeBytes(await _c(uuidResumen).read());
+  Future<ResumenDiario> leerResumen() async => decodificarResumen(await _c(uuidResumen).read());
 
   @override
   Future<List<RegistroMinuto>> descargarHistorial(DateTime desde) async {

@@ -1,4 +1,4 @@
-import 'protocolo.dart';
+import 'modelo.dart';
 
 enum EstadoConexion { desconectado, buscando, conectando, conectado }
 

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'dispositivo.dart';
-import 'protocolo.dart';
+import 'modelo.dart';
 
 /// Genera estados verosímiles para trabajar la interfaz sin hardware.
 class DispositivoSimulado implements Dispositivo {

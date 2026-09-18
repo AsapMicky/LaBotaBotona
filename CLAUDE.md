@@ -19,7 +19,8 @@ revisa entre consultas. El foco de ingeniería es que el indicador sea **confiab
 - `firmware/lib/protocolo` — serialización de los paquetes BLE.
 - `firmware/src` — todo lo que depende del hardware.
 - `backend/supabase` — esquema, permisos (RLS), datos de prueba, función de subida.
-- `app-paciente` — Flutter. `lib/dispositivo/` abstrae simulado vs BLE real.
+- `app-paciente` — Flutter. `lib/dispositivo/` abstrae simulado vs BLE real; `modelo.dart` es el dato,
+  `codec_ble.dart` los bytes (decisión 005).
 - `web-medico` — React + Vite. `src/datos/fuente.js` abstrae mocks vs Supabase.
 
 ## Comandos
@@ -45,5 +46,5 @@ C(t) = carga en %PC (porcentaje del peso corporal). L = límite superior, Lmin =
 - Las métricas se calculan en el microcontrolador; las apps solo las muestran.
 - Un límite enviado por BLE queda *pendiente* hasta confirmarse con el pulsador del equipo.
 - No se guarda señal cruda en la flash: agregados por minuto (ver `docs/decisiones/003`).
-- Cambios al protocolo: actualizar doc + firmware + app + tests en el mismo PR.
+- Cambios al protocolo: actualizar doc + `firmware/lib/protocolo` + `app-paciente/lib/dispositivo/codec_ble.dart` + tests en el mismo PR.
 - Antes de proponer un PR, correr los tests del módulo tocado.
