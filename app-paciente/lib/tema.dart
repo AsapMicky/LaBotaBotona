@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'dispositivo/protocolo.dart';
+import 'dispositivo/modelo.dart';
 
 // Paleta del grupo (presentación del anteproyecto)
 const petroleo = Color(0xFF0B3B47);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dispositivo/dispositivo.dart';
-import '../dispositivo/protocolo.dart';
+import '../dispositivo/modelo.dart';
 import '../tema.dart';
 
 class PantallaInicio extends StatefulWidget {

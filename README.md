@@ -61,4 +61,4 @@ Después del `flutter create`, agregar los permisos de Bluetooth del bloque de a
 1. Cada tarea es un issue (ver `docs/plan-de-avances.md` y `scripts/crear-issues.sh`).
 2. Una rama por issue, PR a `main`, CI verde antes de mergear.
 3. Con Claude Code: pedir primero un plan, revisarlo, después implementar. El contexto está en `CLAUDE.md`.
-4. **Cualquier cambio al protocolo BLE** toca a la vez `docs/protocolo-ble.md`, `firmware/lib/protocolo`, `app-paciente/lib/dispositivo/protocolo.dart` y sus tests.
+4. **Cualquier cambio al protocolo BLE** toca a la vez `docs/protocolo-ble.md`, `firmware/lib/protocolo`, `app-paciente/lib/dispositivo/codec_ble.dart` (y `modelo.dart` si cambia el dato) y sus tests.
