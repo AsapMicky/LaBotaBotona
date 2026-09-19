@@ -89,6 +89,7 @@ const episodios = [
   limite_inf: e.Lmin,
   peso_kg: e.peso,
   token_sync: uuid(),
+  indicaciones: [{ desde: iso(e.dias), limite_sup: e.L, limite_inf: e.Lmin, peso_kg: e.peso, nota: null }],
   resumenes: serie(e.dias, e.fn).map((x) => ({
     ...x, t_carga_s: Math.round(x.t_carga_s), t_exceso_s: Math.round(x.t_exceso_s), t_sub_s: Math.round(x.t_sub_s),
   })),
@@ -99,6 +100,7 @@ episodios.push({
   id: uuid(), paciente_id: marcos.id, dispositivo_serie: null, miembro: 'derecho',
   lesion: 'Fractura de maléolo lateral', fecha_cirugia: iso(422), inicio: iso(420), fin: iso(360),
   limite_sup: 20, limite_inf: 0, peso_kg: 84, token_sync: uuid(),
+  indicaciones: [{ desde: iso(420), limite_sup: 20, limite_inf: 0, peso_kg: 84, nota: null }],
   resumenes: serie(60, (k) => {
     const t = 9500
     const exc = t * (0.2 - 0.15 * k)
@@ -138,6 +140,23 @@ export const fuenteMock = {
     await espera()
     return episodios.find((e) => e.id === episodioId)?.resumenes ?? []
   },
+  async indicacionesDe(episodioId) {
+    await espera()
+    return (episodios.find((e) => e.id === episodioId)?.indicaciones ?? []).map((x) => ({ ...x }))
+  },
+  async cambiarIndicacion(episodioId, { limite_sup, limite_inf, peso_kg, nota }) {
+    await espera()
+    const e = episodios.find((x) => x.id === episodioId)
+    if (!e) throw new Error('Tratamiento inexistente')
+    if (e.fin) throw new Error('El tratamiento está cerrado')
+    if (Number(limite_inf || 0) >= Number(limite_sup)) throw new Error('El mínimo tiene que ser menor que el máximo')
+    e.limite_sup = Number(limite_sup)
+    e.limite_inf = Number(limite_inf || 0)
+    e.peso_kg = peso_kg === '' || peso_kg == null ? null : Number(peso_kg)
+    e.indicaciones.push({
+      desde: iso(0), limite_sup: e.limite_sup, limite_inf: e.limite_inf, peso_kg: e.peso_kg, nota: nota || null,
+    })
+  },
   async dispositivosLibres() {
     const ocupados = new Set(episodios.filter((e) => !e.fin).map((e) => e.dispositivo_serie))
     return dispositivos.filter((d) => !ocupados.has(d.serie))
@@ -150,7 +169,8 @@ export const fuenteMock = {
     const e = { id: uuid(), paciente_id: p.id, dispositivo_serie: d.dispositivo_serie || null,
       miembro: d.miembro, lesion: d.lesion, fecha_cirugia: d.fecha_cirugia || null, inicio: iso(0), fin: null,
       limite_sup: Number(d.limite_sup), limite_inf: Number(d.limite_inf || 0), peso_kg: Number(d.peso_kg) || null,
-      token_sync: uuid(), resumenes: [] }
+      token_sync: uuid(), resumenes: [],
+      indicaciones: [{ desde: iso(0), limite_sup: Number(d.limite_sup), limite_inf: Number(d.limite_inf || 0), peso_kg: Number(d.peso_kg) || null, nota: null }] }
     episodios.push(e)
     return { paciente: p, episodio: e }
   },
