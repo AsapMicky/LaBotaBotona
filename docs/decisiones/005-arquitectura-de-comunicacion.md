@@ -105,6 +105,25 @@ Los dos caminos están implementados y el de la app se probó punta a punta con 
 Falta la persistencia real en el equipo: hoy los resúmenes de días cerrados y los registros por
 minuto viven en RAM. Es la tarea de LittleFS del Avance 4.
 
+## La identidad la sostiene el ID de episodio
+
+El equipo, la app y la web tienen que hablar del mismo paciente sin que el equipo sepa quién es.
+La clave que los une es el **ID de episodio**: 16 caracteres hex, sin nada personal adentro.
+
+1. El médico se lo escribe a la ortesis por BLE al asignarla (característica 0007).
+2. El QR lleva el token **y** ese mismo ID, así que la app también lo tiene.
+3. Antes de subir nada, la app lee el episodio que la ortesis dice tener y lo compara. Si no
+   coincide, no sube: la app se conecta a la ortesis que mejor se escucha, y en un consultorio con
+   varias prendidas esa puede no ser la del paciente. Subir sus datos mezclaría dos fichas.
+4. Una ortesis sin episodio asignado no contradice a nadie, así que se la lee igual.
+
+Además la app le informa al médico qué límites y qué peso tiene cargados el equipo. Es la forma de
+confirmar que la indicación llegó y que alguien la confirmó con el pulsador, que es lo único que la
+pone en vigencia. Si el peso no coincide, todos los %PC salen mal, y la web lo marca.
+
+**El nombre y el documento no salen de Supabase.** No van al equipo ni al QR: la ortesis rota entre
+pacientes y cada devolución sería una fuga. Ahí las policies por médico los protegen.
+
 ## Los dos caminos escriben por la misma puerta
 
 Ni la app ni la web escriben en `resumenes_diarios` ni en `registros_minuto`: las policies no lo

@@ -95,6 +95,20 @@ Firefox y Safari no tienen Web Bluetooth.
 La descarga usa exactamente la misma puerta que la app, la función `subir-datos` con el token del
 episodio. Ni la web ni la app escriben directo contra la base.
 
+### Para mostrar que los tres hablan del mismo paciente
+
+En el reporte, el bloque **La app del paciente** muestra lo último que informó la ortesis: con qué
+límites y con qué peso está calculando, y si eso coincide con la indicación. Es la forma de confirmar
+que lo que prescribió el médico llegó al equipo y que alguien lo confirmó con el pulsador.
+
+Ahí mismo está **Mostrar el código**, que vuelve a mostrar el QR. Sirve si el paciente cambió de
+teléfono: se lo mostrás de nuevo y listo, sin crear nada.
+
+El QR lleva dos cosas: el token, que es la credencial, y el identificador del episodio, que es el mismo
+que el médico le escribe a la ortesis. Con eso la app puede verificar que la ortesis que está leyendo
+sea la de su paciente. Si le acercás una ortesis asignada a otro tratamiento, la app avisa
+*"esta no es tu ortesis"* y no sube nada.
+
 ### Para mostrar el cierre del tratamiento
 
 En el reporte del paciente, cerrar el episodio. La próxima vez que la app intente enviar, el servidor

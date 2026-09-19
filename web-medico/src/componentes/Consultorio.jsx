@@ -39,9 +39,13 @@ export default function Consultorio({ episodio, onCerrado, onDatos }) {
       const registros = await ortesis.descargarHistorial(new Date(0), (n) => setBajando(`${n} minutos leídos…`))
 
       setBajando('Enviando al servidor…')
+      // Se manda también qué tiene cargado el equipo, para dejar constancia de que la
+      // indicación llegó y de con qué peso está calculando los %PC.
+      const cfg = await ortesis.leerConfig()
       const r = await fuente.subirDesdeOrtesis(episodio.token_sync, {
         resumenes: [...porFecha.values()],
         registros,
+        equipo: { serie: info?.serie, firmware: info?.firmware, episodio: info?.episodio, ...cfg },
       })
       setMensaje(`Descarga lista: ${r.resumenes} ${r.resumenes === 1 ? 'día' : 'días'} y ${r.registros} minutos de registro.`)
       await onDatos?.()

@@ -129,7 +129,72 @@ episodio (se le escriben 16 ceros en `6f1a0007`), que es la devolución del equi
 
 ---
 
-## 5. Cómo está organizado el firmware, y por qué
+## 5. Cómo los tres comparten la misma identidad
+
+Esto es una funcionalidad, no un detalle, y tiene una consecuencia directa sobre el firmware.
+
+**El problema.** La app se conecta a la ortesis que mejor se escucha. En un consultorio con varias
+ortesis prendidas, esa puede no ser la del paciente. Si la app subiera esos datos, la ficha de una
+persona quedaría con las mediciones de otra. En un contexto clínico eso es grave.
+
+**La solución: el ID de episodio es la clave que une a los tres.**
+
+```
+  web del médico                     app del paciente                  ortesis
+ ────────────────                   ──────────────────                ─────────
+  crea el episodio
+  escribe el ID por BLE  ──────────────────────────────────────────►  lo guarda (0007)
+  muestra el QR con
+  {token, ID de episodio} ─────────►  lo guarda en el celular
+                                      lee el ID del equipo (0007)  ◄──  lo informa
+                                      ¿coinciden? recién ahí sube
+                                      informa qué límites tiene   ◄──   los informa (0005)
+  ve si la indicación llegó  ◄───────  y con qué peso calcula
+```
+
+Las tres reglas que aplica la app:
+
+| Lo que dice el equipo | Qué hace la app |
+|---|---|
+| el mismo episodio que el QR | sube normalmente |
+| **otro** episodio | **no sube nada** y avisa "esta no es tu ortesis" |
+| sin episodio (nunca asignada) | sube igual: un equipo en blanco no contradice a nadie |
+
+**Qué datos comparten.** El ID de episodio, los dos límites y el peso corporal. El peso importa
+porque es lo que convierte fuerza en %PC: si el equipo tiene un peso distinto del que el médico
+prescribió, todos los porcentajes salen mal, y la web lo marca.
+
+**Qué NO comparten: el nombre y el documento.** No van al equipo ni al QR. El equipo rota entre
+pacientes; si llevara datos personales, cada devolución sería una fuga. El nombre vive solo en
+Supabase, donde las policies lo protegen por médico. Los tres sistemas hablan del mismo paciente
+sin que el equipo sepa quién es. No agregues el nombre al protocolo por más cómodo que parezca.
+
+### Lo que esto le exige al firmware, y hoy no cumple
+
+**El episodio y los límites están en RAM.** Mirá `main.cpp`:
+
+```cpp
+static char episodio[16] = {0};
+static float pesoActivo_kg = 70.0f;
+...
+Limites lim; lim.L = 20.0f; lim.Lmin = 10.0f;   // en setup()
+```
+
+Si el equipo se reinicia o se queda sin batería:
+
+- **olvida a qué tratamiento pertenece**, y la app lo va a ver como "sin asignar";
+- **vuelve a L = 20 %PC, Lmin = 10 %PC y 70 kg**, que son valores de fábrica que nadie prescribió.
+
+Lo segundo es un problema de seguridad del paciente: el equipo sigue midiendo, sigue mostrando el
+semáforo y sigue acumulando dosis, pero contra un límite inventado. **Guardalos en NVS**
+(`Preferences.h`) al escribirlos y leelos en `setup()`. Es de las primeras cosas que hay que hacer,
+y es barata.
+
+Lo mismo vale para el offset horario y para la calibración de los canales cuando exista.
+
+---
+
+## 6. Cómo está organizado el firmware, y por qué
 
 ```
 firmware/
@@ -163,9 +228,9 @@ es corto, y tiene sutilezas que costaron:
 
 ---
 
-## 6. Lo que hay que construir
+## 7. Lo que hay que construir
 
-### 6.1 Guardar en la flash (LittleFS) — lo más importante
+### 7.1 Guardar en la flash (LittleFS) — lo más importante
 
 Hoy el historial y los resúmenes viven en **RAM**:
 
@@ -252,7 +317,7 @@ bloque de 4 KB entra unos 340 registros, así que son unas 4 escrituras de bloqu
 **Corte de luz.** LittleFS es resistente a cortes por diseño, pero cerrá o hacé `flush` del archivo
 después de cada minuto. Un registro perdido es aceptable; un sistema de archivos corrupto no.
 
-### 6.2 Leer los sensores de verdad
+### 7.2 Leer los sensores de verdad
 
 Hoy:
 
@@ -292,7 +357,7 @@ Así se cambia una clase sin tocar ni la dosimetría ni el BLE.
 
 Los puntos 3, 4 y 5 son el corazón del trabajo de Instrumentación. Los puntos 1 y 2 son plomería.
 
-### 6.3 Lo demás del hardware
+### 7.3 Lo demás del hardware
 
 | Qué | Hoy | Falta |
 |---|---|---|
@@ -309,7 +374,7 @@ DS3231 leído al arrancar, eso deja de ser un problema. Es más importante de lo
 
 ---
 
-## 7. Cómo probar sin placa
+## 8. Cómo probar sin placa
 
 Es lo que más te va a servir al principio:
 
@@ -334,25 +399,27 @@ El guion completo de la demostración punta a punta está en `docs/prueba-en-viv
 
 ---
 
-## 8. Primeros pasos sugeridos
+## 9. Primeros pasos sugeridos
 
 En este orden, porque cada uno desbloquea al siguiente:
 
-1. **Mapa de pines** de la placa final en `src/placa.h`, aunque todavía no exista el hardware.
-2. **Interfaz `FuenteCarga`**, con `FuentePotenciometro` moviendo ahí el código actual. Sin cambiar
+1. **Guardar el episodio, los límites y el peso en NVS** (§5). Es corto, no necesita hardware nuevo
+   y arregla que el equipo vuelva a valores de fábrica cuando se queda sin batería.
+2. **Mapa de pines** de la placa final en `src/placa.h`, aunque todavía no exista el hardware.
+3. **Interfaz `FuenteCarga`**, con `FuentePotenciometro` moviendo ahí el código actual. Sin cambiar
    comportamiento. Los 18 tests tienen que seguir pasando.
-3. **Interfaz `Almacen`** con la implementación en RAM, moviendo ahí los dos `std::vector`. Tests
+4. **Interfaz `Almacen`** con la implementación en RAM, moviendo ahí los dos `std::vector`. Tests
    nuevos en `native` para la implementación en RAM. Sin cambiar comportamiento.
-4. **`AlmacenLittleFs`** en `src/`, con la tabla de particiones. Probalo en un devkit antes de que
+5. **`AlmacenLittleFs`** en `src/`, con la tabla de particiones. Probalo en un devkit antes de que
    llegue la placa: se puede.
-5. **DS3231**, que arregla lo del día sin hora.
-6. Recién ahí, **`FuenteFsr`** y la calibración, cuando haya electrónica.
+6. **DS3231**, que arregla lo del día sin hora.
+7. Recién ahí, **`FuenteFsr`** y la calibración, cuando haya electrónica.
 
-Los pasos 2 y 3 son refactors puros: si algún test cambia de resultado, algo se rompió.
+Los pasos 3 y 4 son refactors puros: si algún test cambia de resultado, algo se rompió.
 
 ---
 
-## 9. Trampas conocidas
+## 10. Trampas conocidas
 
 - **No toques el protocolo sin actualizar los cinco archivos.** Si hace falta cambiarlo, frená y
   preguntale al grupo: la app y la web ya están desplegadas contra este contrato.
@@ -362,6 +429,9 @@ Los pasos 2 y 3 son refactors puros: si algún test cambia de resultado, algo se
 - **No guardes señal cruda**, por más tentador que sea para depurar. Si necesitás verla, hacelo
   por el puerto serie en un modo de calibración de banco, que nunca escribe en la flash.
 - **El paciente no ve %PC.** Vale también para la OLED del equipo, no solo para la app.
+- **No le agregues el nombre del paciente al equipo**, por más que simplifique algo. El equipo rota
+  entre personas y no puede llevar datos personales (§5).
+- **El episodio y los límites tienen que sobrevivir a un reinicio.** Hoy no lo hacen (§5).
 - **El acumulado se reinicia a medianoche**, y `AgregadorMinuto` depende de detectar ese salto.
   Si cambiás el cierre del día, mirá `AgregadorMinuto::cerrar`.
 - **El historial no se borra al entregarlo.** Solo al cerrar el episodio. Los dos caminos de
@@ -369,7 +439,7 @@ Los pasos 2 y 3 son refactors puros: si algún test cambia de resultado, algo se
 
 ---
 
-## 10. Dónde está cada cosa
+## 11. Dónde está cada cosa
 
 | Necesitás | Andá a |
 |---|---|

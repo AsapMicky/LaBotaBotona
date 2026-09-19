@@ -13,10 +13,10 @@ class PantallaVinculacion extends StatelessWidget {
   const PantallaVinculacion({super.key, required this.vinculacion, this.sincronizador});
 
   Future<void> _escanear(BuildContext context) async {
-    final token = await Navigator.of(context).push<String>(
+    final datos = await Navigator.of(context).push<DatosQr>(
       MaterialPageRoute(builder: (_) => const PantallaEscanearQr()),
     );
-    if (token != null) await vinculacion.vincular(token);
+    if (datos != null) await vinculacion.vincular(datos);
   }
 
   Future<void> _desvincular(BuildContext context) async {
@@ -67,6 +67,16 @@ class PantallaVinculacion extends StatelessWidget {
                     destacada: true,
                   ),
               },
+              if (s != null && s.equipoAjeno) ...[
+                const SizedBox(height: 16),
+                const _Tarjeta(
+                  icono: Icons.error_outline,
+                  titulo: 'Esta no es tu ortesis',
+                  detalle: 'La ortesis que está cerca pertenece a otro tratamiento, así que no se envía '
+                      'nada de lo que tiene adentro. Alejate de otras ortesis y volvé a intentar.',
+                  destacada: true,
+                ),
+              ],
               if (s != null && v != null) ...[
                 const SizedBox(height: 16),
                 _EstadoEnvio(s: s),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import QRCode from 'qrcode'
 import { fuente } from '../datos/fuente.js'
+import QrVinculacion from '../componentes/QrVinculacion.jsx'
 
 const inicial = {
   nombre: '', apellido: '', documento: '', miembro: 'izquierdo', lesion: '',
@@ -12,7 +12,6 @@ export default function AltaPaciente({ onCancelar, onCreado }) {
   const [libres, setLibres] = useState([])
   const [error, setError] = useState(null)
   const [creado, setCreado] = useState(null)
-  const [qr, setQr] = useState(null)
 
   useEffect(() => { fuente.dispositivosLibres().then(setLibres) }, [])
   const campo = (k) => ({ value: d[k], onChange: (e) => setD({ ...d, [k]: e.target.value }) })
@@ -25,9 +24,7 @@ export default function AltaPaciente({ onCancelar, onCreado }) {
       return
     }
     try {
-      const r = await fuente.crearPacienteYEpisodio(d)
-      setCreado(r)
-      setQr(await QRCode.toDataURL(JSON.stringify({ t: r.episodio.token_sync }), { margin: 1, width: 220 }))
+      setCreado(await fuente.crearPacienteYEpisodio(d))
     } catch (e) {
       setError(e.message)
     }
@@ -39,7 +36,7 @@ export default function AltaPaciente({ onCancelar, onCreado }) {
         <h1>Alta registrada: {creado.paciente.nombre} {creado.paciente.apellido}</h1>
         <p>Código interno <strong>{creado.paciente.codigo}</strong>.</p>
         <div className="alta-qr">
-          {qr && <img src={qr} alt="Código QR para vincular la app del paciente" />}
+          <QrVinculacion episodio={creado.episodio} />
           <div>
             <h2>Vincular la app del paciente</h2>
             <p>El paciente escanea este código desde la app. Queda vinculada a este tratamiento sin crear una cuenta.</p>

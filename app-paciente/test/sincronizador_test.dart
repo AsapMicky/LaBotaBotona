@@ -25,6 +25,19 @@ class EquipoFalso implements Dispositivo {
   @override
   String? get nombre => 'DOSI-TEST';
 
+  /// A qué tratamiento dice estar asignado este equipo.
+  String episodioDelEquipo = episodio;
+
+  @override
+  Future<InfoEquipo> leerInfo() async =>
+      InfoEquipo(protocolo: 1, firmware: '0.1.0', serie: '0007', episodio: episodioDelEquipo);
+
+  @override
+  Future<ConfigEquipo> leerConfig() async => const ConfigEquipo(
+        limiteSup: 20, limiteInf: 10, pesoKg: 70,
+        pendienteSup: 20, pendienteInf: 10, pendientePesoKg: 70, hayPendiente: false,
+      );
+
   void conectado() => _conexion.add(EstadoConexion.conectado);
 
   @override
@@ -71,6 +84,7 @@ class EquipoFalso implements Dispositivo {
 }
 
 const token = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+const episodio = '3f2504e04f8941d3';
 
 Future<void> respirar() => Future<void>.delayed(const Duration(milliseconds: 30));
 
@@ -107,7 +121,7 @@ void main() {
       http.Response(jsonEncode({'ok': true, 'resumenes': c['resumenes'].length, 'registros': c['registros'].length}), 200);
 
   test('al conectar el equipo baja el resumen y el historial y los sube', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar(ok);
     await s.iniciar();
     await respirar();
@@ -132,8 +146,53 @@ void main() {
     s.dispose();
   });
 
+  test('no sube nada si la ortesis es de otro tratamiento', () async {
+    await vinculacion.vincular(const DatosQr(token, episodio));
+    equipo.episodioDelEquipo = '0b8352b78feb4314'; // la ortesis de otro paciente
+    final s = armar(ok);
+    await s.iniciar();
+    await respirar();
+    recibidos.clear();
+
+    equipo.conectado();
+    await respirar();
+    expect(s.equipoAjeno, isTrue);
+    expect(s.diasPendientes, 0, reason: 'ni siquiera se encola');
+    expect(recibidos, isEmpty);
+    s.dispose();
+  });
+
+  test('una ortesis sin asignar se lee igual', () async {
+    await vinculacion.vincular(const DatosQr(token, episodio));
+    equipo.episodioDelEquipo = ''; // devkit que el médico todavía no asignó
+    final s = armar(ok);
+    await s.iniciar();
+    equipo.conectado();
+    await respirar();
+    expect(s.equipoAjeno, isFalse);
+    expect(s.diasPendientes, 0, reason: 'se subió todo');
+    expect(recibidos.last['resumenes'], hasLength(3));
+    s.dispose();
+  });
+
+  test('le manda al médico qué tiene cargado la ortesis', () async {
+    await vinculacion.vincular(const DatosQr(token, episodio));
+    final s = armar(ok);
+    await s.iniciar();
+    equipo.conectado();
+    await respirar();
+    final eq = recibidos.last['equipo'] as Map<String, dynamic>;
+    expect(eq['serie'], '0007');
+    expect(eq['firmware'], '0.1.0');
+    expect(eq['episodio'], episodio);
+    expect(eq['limite_sup'], 20);
+    expect(eq['peso_kg'], 70);
+    expect(eq['hay_pendiente'], isFalse);
+    s.dispose();
+  });
+
   test('los días cerrados se piden una sola vez', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar(ok);
     await s.iniciar();
     equipo.conectado();
@@ -150,7 +209,7 @@ void main() {
   });
 
   test('no se pierde la conexión que ocurre apenas arranca', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar(ok);
     final arrancando = s.iniciar(); // sin await: el equipo se conecta mientras carga la cola
     equipo.conectado();
@@ -163,7 +222,7 @@ void main() {
   });
 
   test('la próxima descarga pide el historial desde el último minuto subido', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar(ok);
     await s.iniciar();
     equipo.conectado();
@@ -175,7 +234,7 @@ void main() {
   });
 
   test('sin servidor la cola se llena y no se manda nada', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar(ok, conServidor: false);
     await s.iniciar();
     equipo.conectado();
@@ -196,7 +255,7 @@ void main() {
     expect(s.diasPendientes, 3);
 
     // Al escanear el QR sale todo lo acumulado
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     await respirar();
     expect(recibidos, hasLength(1));
     expect(recibidos.single['resumenes'], hasLength(3));
@@ -205,7 +264,7 @@ void main() {
   });
 
   test('si el servidor falla, queda pendiente con el error y sin perder nada', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar((_) => http.Response('caído', 503));
     await s.iniciar();
     equipo.conectado();
@@ -218,7 +277,7 @@ void main() {
   });
 
   test('episodio cerrado: la vinculación queda revocada y no se insiste', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final s = armar((_) => http.Response('Episodio inexistente o cerrado', 404));
     await s.iniciar();
     await respirar();
@@ -232,7 +291,7 @@ void main() {
   });
 
   test('un lote grande sale en varios POST', () async {
-    await vinculacion.vincular(token);
+    await vinculacion.vincular(const DatosQr(token, episodio));
     final cola = ColaSubida(almacen);
     await cola.encolarRegistros([
       for (var i = 0; i < ColaSubida.maxRegistrosPorLote + 1; i++)

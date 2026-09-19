@@ -21,6 +21,10 @@ constexpr const char* UUID_RESUMENES  = "6f1a0008-8b3c-4d5e-9a10-2c7e5b3d9f00";
 constexpr size_t TAM_ESTADO = 8;
 constexpr size_t TAM_RESUMEN = 28;
 constexpr size_t TAM_REGISTRO = 12;
+constexpr size_t TAM_CONFIG = 13;   // lectura de 0005
+constexpr size_t TAM_INFO = 32;     // lectura de 0007
+constexpr size_t LARGO_SERIE = 12;
+constexpr size_t LARGO_EPISODIO = 16;
 constexpr size_t REGISTROS_POR_PAQUETE = 15;
 // 2 + 8×28 = 226 B, entra en una notificación con el MTU de 247 que pide la app.
 constexpr size_t RESUMENES_POR_PAQUETE = 8;
@@ -72,6 +76,38 @@ inline void codificarResumen(uint8_t* b, uint32_t inicioDia, const dosi::Acumula
   put32(b + 20, static_cast<uint32_t>(a.tSub_s));
   put16(b + 24, x10(a.pico));
   put16(b + 26, a.excedencias > 65535 ? 65535 : a.excedencias);
+}
+
+// Lo que el médico prescribe: los dos límites y el peso con el que se convierte a %PC.
+struct Ajustes {
+  float L = 0;
+  float Lmin = 0;
+  float peso_kg = 0;
+};
+
+/// 0005 · Configuración (13 B): activo, pendiente y si hay algo pendiente de confirmar.
+inline void codificarConfig(uint8_t* b, const Ajustes& activo, const Ajustes& pendiente,
+                            bool hayPendiente) {
+  put16(b, x10(activo.L));
+  put16(b + 2, x10(activo.Lmin));
+  put16(b + 4, x10(activo.peso_kg));
+  put16(b + 6, x10(pendiente.L));
+  put16(b + 8, x10(pendiente.Lmin));
+  put16(b + 10, x10(pendiente.peso_kg));
+  b[12] = hayPendiente ? 1 : 0;
+}
+
+/// 0007 · Info y episodio (32 B). El episodio son 16 caracteres hex, o ceros si no hay.
+/// Es el único identificador que guarda el equipo: nada de nombre ni documento.
+inline void codificarInfo(uint8_t* b, uint8_t fwMayor, uint8_t fwMenor, uint8_t fwParche,
+                          const char* serie, const char* episodio) {
+  std::memset(b, 0, TAM_INFO);
+  b[0] = VERSION;
+  b[1] = fwMayor;
+  b[2] = fwMenor;
+  b[3] = fwParche;
+  std::strncpy(reinterpret_cast<char*>(b + 4), serie, LARGO_SERIE);
+  std::memcpy(b + 16, episodio, LARGO_EPISODIO);
 }
 
 inline void codificarRegistro(uint8_t* b, const dosi::RegistroMinuto& r) {

@@ -23,6 +23,10 @@ const int seqFin = 0xFFFF;
 const int tamEstado = 8;
 const int tamResumen = 28;
 const int tamRegistro = 12;
+const int tamConfig = 13;
+const int tamInfo = 32;
+const int largoSerie = 12;
+const int largoEpisodio = 16;
 
 /// Operaciones de la característica de control (0003).
 const int opHistorial = 1;
@@ -49,6 +53,43 @@ EstadoVivo decodificarEstado(List<int> b) {
     sinHora: flags & 0x04 != 0,
     sinEpisodio: flags & 0x08 != 0,
     cumplimientoHoy: cumpl == 0xFFFF ? null : cumpl / 10.0,
+  );
+}
+
+String _texto(List<int> b, int desde, int largo) {
+  final fin = desde + largo;
+  final utiles = <int>[];
+  for (var i = desde; i < fin && i < b.length; i++) {
+    if (b[i] == 0) break; // los campos se rellenan con ceros
+    utiles.add(b[i]);
+  }
+  return String.fromCharCodes(utiles);
+}
+
+/// 0007 · Info y episodio (32 B).
+InfoEquipo decodificarInfo(List<int> b) {
+  if (b.length < tamInfo) throw const FormatException('Info: se esperaban 32 bytes');
+  return InfoEquipo(
+    protocolo: b[0],
+    firmware: '${b[1]}.${b[2]}.${b[3]}',
+    serie: _texto(b, 4, largoSerie),
+    episodio: _texto(b, 16, largoEpisodio),
+  );
+}
+
+/// 0005 · Configuración (13 B en la lectura).
+ConfigEquipo decodificarConfig(List<int> b) {
+  if (b.length < tamConfig) throw const FormatException('Configuración: se esperaban 13 bytes');
+  final d = _bd(b);
+  double x10(int o) => d.getUint16(o, Endian.little) / 10.0;
+  return ConfigEquipo(
+    limiteSup: x10(0),
+    limiteInf: x10(2),
+    pesoKg: x10(4),
+    pendienteSup: x10(6),
+    pendienteInf: x10(8),
+    pendientePesoKg: x10(10),
+    hayPendiente: b[12] != 0,
   );
 }
 

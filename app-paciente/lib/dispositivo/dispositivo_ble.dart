@@ -174,6 +174,12 @@ class DispositivoBle implements Dispositivo {
   }
 
   @override
+  Future<InfoEquipo> leerInfo() async => decodificarInfo(await _c(uuidInfo).read());
+
+  @override
+  Future<ConfigEquipo> leerConfig() async => decodificarConfig(await _c(uuidConfig).read());
+
+  @override
   Future<ResumenDiario> leerResumen() async => decodificarResumen(await _c(uuidResumen).read());
 
   /// Descarga por notificaciones: se pide por 0003 y el equipo contesta en paquetes

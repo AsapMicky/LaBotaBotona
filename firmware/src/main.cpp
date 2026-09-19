@@ -93,23 +93,17 @@ static void publicarEstado() {
 }
 
 static void publicarConfig() {
-  uint8_t b[13];
   const Limites& a = dosimetro.limites();
-  proto::put16(b, proto::x10(a.L));
-  proto::put16(b + 2, proto::x10(a.Lmin));
-  proto::put16(b + 4, proto::x10(pesoActivo_kg));
-  proto::put16(b + 6, proto::x10(limitePendiente.L));
-  proto::put16(b + 8, proto::x10(limitePendiente.Lmin));
-  proto::put16(b + 10, proto::x10(pesoPendiente_kg));
-  b[12] = hayPendiente;
+  proto::Ajustes activo{a.L, a.Lmin, pesoActivo_kg};
+  proto::Ajustes pendiente{limitePendiente.L, limitePendiente.Lmin, pesoPendiente_kg};
+  uint8_t b[proto::TAM_CONFIG];
+  proto::codificarConfig(b, activo, pendiente, hayPendiente);
   chConfig->setValue(b, sizeof b);
 }
 
 static void publicarInfo() {
-  uint8_t b[32] = {0};
-  b[0] = proto::VERSION; b[1] = FW_MAYOR; b[2] = FW_MENOR; b[3] = FW_PARCHE;
-  strncpy(reinterpret_cast<char*>(b + 4), SERIE, 12);
-  memcpy(b + 16, episodio, 16);
+  uint8_t b[proto::TAM_INFO];
+  proto::codificarInfo(b, FW_MAYOR, FW_MENOR, FW_PARCHE, SERIE, episodio);
   chInfo->setValue(b, sizeof b);
 }
 

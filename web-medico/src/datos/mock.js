@@ -160,7 +160,7 @@ export const fuenteMock = {
   },
 
   // Imita a la función `subir-datos`: valida el token y hace upsert por fecha.
-  async subirDesdeOrtesis(token, { resumenes = [], registros = [] }) {
+  async subirDesdeOrtesis(token, { resumenes = [], registros = [], equipo }) {
     await espera()
     const ep = episodios.find((e) => e.token_sync === token && !e.fin)
     if (!ep) throw new Error('Episodio inexistente o cerrado')
@@ -169,6 +169,10 @@ export const fuenteMock = {
       if (i >= 0) ep.resumenes[i] = r
       else ep.resumenes.push(r)
     }
-    return { ok: true, resumenes: resumenes.length, registros: registros.length }
+    if (equipo) {
+      ep.equipo_visto = equipo
+      ep.equipo_visto_en = new Date().toISOString()
+    }
+    return { ok: true, resumenes: resumenes.length, registros: registros.length, equipo: !!equipo }
   },
 }
