@@ -42,6 +42,21 @@ export function crearFuenteSupabase(url, clave) {
       return ok(await db.from('resumenes_diarios').select('*')
         .eq('episodio_id', episodioId).order('fecha'))
     },
+    async indicacionesDe(episodioId) {
+      return ok(await db.from('indicaciones').select('*')
+        .eq('episodio_id', episodioId).order('desde').order('creado'))
+    },
+    // Una sola operación del lado del servidor: cambia el episodio y deja la historia.
+    async cambiarIndicacion(episodioId, { limite_sup, limite_inf, peso_kg, nota }) {
+      const { error } = await db.rpc('cambiar_indicacion', {
+        ep: episodioId,
+        sup: Number(limite_sup),
+        inf: Number(limite_inf || 0),
+        peso: peso_kg === '' || peso_kg == null ? null : Number(peso_kg),
+        nota_txt: nota || null,
+      })
+      if (error) throw new Error(error.message)
+    },
     async dispositivosLibres() {
       const todos = ok(await db.from('dispositivos').select('id, serie').order('serie'))
       const abiertos = ok(await db.from('episodios').select('dispositivo_id').is('fin', null))

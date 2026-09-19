@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fuente } from '../datos/fuente.js'
 import { diasEntre, fmt, indices } from '../datos/indices.js'
 import GraficoDosis from '../componentes/GraficoDosis.jsx'
 import CarrilVentana from '../componentes/CarrilVentana.jsx'
 import Consultorio from '../componentes/Consultorio.jsx'
 import QrVinculacion from '../componentes/QrVinculacion.jsx'
+import Indicacion from '../componentes/Indicacion.jsx'
 
 const media = (xs) => {
   const v = xs.filter((x) => x != null)
@@ -35,6 +36,7 @@ export default function Reporte({ paciente, onCambio }) {
   const [episodios, setEpisodios] = useState(null)
   const [epId, setEpId] = useState(null)
   const [resumenes, setResumenes] = useState(null)
+  const [indicaciones, setIndicaciones] = useState(null)
   const [ventana, setVentana] = useState(14)
   const [mostrarQr, setMostrarQr] = useState(false)
 
@@ -48,8 +50,16 @@ export default function Reporte({ paciente, onCambio }) {
   useEffect(() => {
     if (!epId) return
     setResumenes(null)
+    setIndicaciones(null)
     fuente.resumenesDe(epId).then(setResumenes)
+    fuente.indicacionesDe(epId).then(setIndicaciones)
   }, [epId])
+
+  // Cambiar la indicación modifica el episodio, así que hay que releer los dos.
+  const recargarIndicacion = useCallback(async () => {
+    setEpisodios(await fuente.episodiosDe(paciente.id))
+    if (epId) setIndicaciones(await fuente.indicacionesDe(epId))
+  }, [paciente.id, epId])
 
   // Después de descargar la ortesis en la consulta, el reporte se rearma solo.
   const recargarResumenes = async () => {
@@ -96,16 +106,14 @@ export default function Reporte({ paciente, onCambio }) {
         <>
           <dl className="rp-episodio">
             <div><dt>Lesión</dt><dd>{ep.lesion}, miembro {ep.miembro}</dd></div>
-            <div><dt>Indicación</dt><dd>
-              {ep.limite_inf > 0 ? `Entre ${fmt.num(ep.limite_inf)} y ${fmt.num(ep.limite_sup)} %` : `Hasta ${fmt.num(ep.limite_sup)} %`} del peso corporal
-              {ep.peso_kg && <span className="suave"> ({fmt.num(ep.peso_kg * ep.limite_sup / 100, 1)} kg máx.)</span>}
-            </dd></div>
             <div><dt>{ep.fin ? 'Duración' : 'Día de tratamiento'}</dt><dd>
               {ep.fin ? `${diasEntre(ep.inicio, ep.fin)} días` : diasEntre(ep.inicio) + 1}
               <span className="suave"> desde el {fmt.fechaLarga(ep.inicio)}</span>
             </dd></div>
             <div><dt>Ortesis</dt><dd>{ep.dispositivo_serie ? `N.º ${ep.dispositivo_serie}` : 'Devuelta'}</dd></div>
           </dl>
+
+          <Indicacion episodio={ep} historia={indicaciones} onCambio={recargarIndicacion} />
 
           {resumenes === null ? (
             <p className="cargando">Cargando registros…</p>
@@ -147,7 +155,7 @@ export default function Reporte({ paciente, onCambio }) {
                     ))}
                   </div>
                 </div>
-                <GraficoDosis dias={visibles} />
+                <GraficoDosis dias={visibles} cambios={(indicaciones ?? []).slice(1)} />
               </section>
 
               <section className="bloque">

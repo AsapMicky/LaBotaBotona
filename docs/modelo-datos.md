@@ -3,6 +3,7 @@
 ```
 medico 1───n paciente 1───n episodio n───0..1 dispositivo
                                │
+                               ├──n indicacion      (historia de la prescripción)
                                ├──n resumen_diario   (1 por día)
                                └──n registro_minuto  (perfil intradiario)
 ```
@@ -12,7 +13,14 @@ medico 1───n paciente 1───n episodio n───0..1 dispositivo
 - **Episodio**: un tratamiento concreto. Miembro (izquierdo/derecho), lesión, fecha de cirugía, límites L y Lmin,
   peso corporal, fechas de inicio y fin, dispositivo asignado y `token_sync` (lo usa la app del paciente para subir datos
   sin tener cuenta). Una re-lesión es **otro episodio** del mismo paciente.
+- **Indicación**: qué se le prescribió al paciente y desde cuándo. El episodio guarda la indicación
+  **vigente** (es la que se le envía a la ortesis); la tabla guarda la historia. En rehabilitación la carga
+  permitida se progresa y el peso de la persona cambia, así que esto no es opcional: sin la historia, los
+  días viejos quedarían medidos contra un límite que ya no se ve por ningún lado. La escribe un trigger, así
+  que ningún camino de la app puede olvidarse de registrarla.
 - **Dispositivo**: número de serie y versión de firmware. Como máximo un episodio abierto por dispositivo.
+- **Estado del equipo** (`episodios.equipo_visto`): lo último que la ortesis informó de sí misma cuando
+  alguien la leyó. Sirve para confirmar que la indicación llegó al equipo y con qué peso está calculando.
 - **Resumen diario / registro por minuto**: lo que baja del equipo, tal cual el protocolo.
 
 ## Quién accede a qué

@@ -184,3 +184,30 @@ label { display: grid; gap: .3rem; font-weight: 500; font-size: .92rem; }
 .alta > button { justify-self: start; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Historia de indicaciones del tratamiento */
+.historia-indicaciones {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border-left: 2px solid var(--linea);
+}
+.historia-indicaciones li {
+  padding: 6px 0 6px 14px;
+  position: relative;
+}
+.historia-indicaciones li::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--petroleo);
+}
+h3.sub {
+  font-size: 0.95rem;
+  margin: 18px 0 6px;
+}
+.equipo-cargado p { margin-top: 0; }
