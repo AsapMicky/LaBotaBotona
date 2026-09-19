@@ -3,7 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../vinculacion/vinculacion.dart';
 
-/// Lee el QR que muestra la web del médico y devuelve el token con `Navigator.pop`.
+/// Lee el QR que muestra la web del médico y devuelve sus datos con `Navigator.pop`.
 /// Abajo hay un campo para pegar el código a mano: sirve en el emulador, que no
 /// puede leer un QR de la pantalla, y si la cámara del celular no anda.
 class PantallaEscanearQr extends StatefulWidget {
@@ -28,13 +28,13 @@ class _PantallaEscanearQrState extends State<PantallaEscanearQr> {
 
   void _entregar(String? texto) {
     if (_listo || texto == null) return;
-    final token = tokenDesdeQr(texto);
-    if (token == null) {
+    final datos = datosDesdeQr(texto);
+    if (datos == null) {
       setState(() => _error = 'Ese código no es de esta app. Pedile a tu médico que te muestre el QR del tratamiento.');
       return;
     }
     _listo = true;
-    Navigator.of(context).pop(token);
+    Navigator.of(context).pop(datos);
   }
 
   @override

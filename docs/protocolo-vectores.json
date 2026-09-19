@@ -339,5 +339,138 @@
         ]
       }
     }
+  ],
+  "config": [
+    {
+      "nombre": "sin nada pendiente",
+      "bytes": "2C 01 96 00 80 02 2C 01 96 00 80 02 00",
+      "entrada": {
+        "activo": {
+          "L": 30.0,
+          "Lmin": 15.0,
+          "peso_kg": 64.0
+        },
+        "pendiente": {
+          "L": 30.0,
+          "Lmin": 15.0,
+          "peso_kg": 64.0
+        },
+        "hay_pendiente": false
+      },
+      "esperado": {
+        "limite_sup": 30.0,
+        "limite_inf": 15.0,
+        "peso_kg": 64.0,
+        "pendiente_sup": 30.0,
+        "pendiente_inf": 15.0,
+        "pendiente_peso_kg": 64.0,
+        "hay_pendiente": false
+      }
+    },
+    {
+      "nombre": "el médico mandó una indicación nueva",
+      "bytes": "C8 00 00 00 34 03 FA 00 64 00 39 03 01",
+      "entrada": {
+        "activo": {
+          "L": 20.0,
+          "Lmin": 0.0,
+          "peso_kg": 82.0
+        },
+        "pendiente": {
+          "L": 25.0,
+          "Lmin": 10.0,
+          "peso_kg": 82.5
+        },
+        "hay_pendiente": true
+      },
+      "esperado": {
+        "limite_sup": 20.0,
+        "limite_inf": 0.0,
+        "peso_kg": 82.0,
+        "pendiente_sup": 25.0,
+        "pendiente_inf": 10.0,
+        "pendiente_peso_kg": 82.5,
+        "hay_pendiente": true
+      }
+    },
+    {
+      "nombre": "recién salido de fábrica",
+      "bytes": "C8 00 64 00 BC 02 C8 00 64 00 BC 02 00",
+      "entrada": {
+        "activo": {
+          "L": 20.0,
+          "Lmin": 10.0,
+          "peso_kg": 70.0
+        },
+        "pendiente": {
+          "L": 20.0,
+          "Lmin": 10.0,
+          "peso_kg": 70.0
+        },
+        "hay_pendiente": false
+      },
+      "esperado": {
+        "limite_sup": 20.0,
+        "limite_inf": 10.0,
+        "peso_kg": 70.0,
+        "pendiente_sup": 20.0,
+        "pendiente_inf": 10.0,
+        "pendiente_peso_kg": 70.0,
+        "hay_pendiente": false
+      }
+    }
+  ],
+  "info": [
+    {
+      "nombre": "asignada a un tratamiento",
+      "bytes": "01 00 01 00 30 30 30 33 00 00 00 00 00 00 00 00 33 66 32 35 30 34 65 30 34 66 38 39 34 31 64 33",
+      "entrada": {
+        "fw_mayor": 0,
+        "fw_menor": 1,
+        "fw_parche": 0,
+        "serie": "0003",
+        "episodio": "3f2504e04f8941d3"
+      },
+      "esperado": {
+        "protocolo": 1,
+        "firmware": "0.1.0",
+        "serie": "0003",
+        "episodio": "3f2504e04f8941d3"
+      }
+    },
+    {
+      "nombre": "sin episodio: nunca fue asignada",
+      "bytes": "01 00 01 00 30 30 30 31 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "entrada": {
+        "fw_mayor": 0,
+        "fw_menor": 1,
+        "fw_parche": 0,
+        "serie": "0001",
+        "episodio": ""
+      },
+      "esperado": {
+        "protocolo": 1,
+        "firmware": "0.1.0",
+        "serie": "0001",
+        "episodio": ""
+      }
+    },
+    {
+      "nombre": "serie de 12 caracteres, el máximo",
+      "bytes": "01 01 02 03 41 42 43 44 45 46 47 48 31 32 33 34 30 62 38 33 35 32 62 37 38 66 65 62 34 33 31 34",
+      "entrada": {
+        "fw_mayor": 1,
+        "fw_menor": 2,
+        "fw_parche": 3,
+        "serie": "ABCDEFGH1234",
+        "episodio": "0b8352b78feb4314"
+      },
+      "esperado": {
+        "protocolo": 1,
+        "firmware": "1.2.3",
+        "serie": "ABCDEFGH1234",
+        "episodio": "0b8352b78feb4314"
+      }
+    }
   ]
 }

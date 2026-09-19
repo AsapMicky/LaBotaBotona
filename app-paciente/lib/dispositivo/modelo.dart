@@ -30,6 +30,68 @@ class EstadoVivo {
   });
 }
 
+/// Quién es el equipo y a qué tratamiento está asignado (0007).
+/// El `episodio` son 16 caracteres hex, o vacío si nadie se lo asignó todavía.
+/// Es el único identificador que guarda el equipo: no lleva nombre ni documento
+/// de nadie, porque rota entre pacientes (decisión 002).
+class InfoEquipo {
+  final int protocolo;
+  final String firmware;
+  final String serie;
+  final String episodio;
+
+  const InfoEquipo({
+    required this.protocolo,
+    required this.firmware,
+    required this.serie,
+    required this.episodio,
+  });
+
+  bool get sinAsignar => episodio.isEmpty;
+
+  /// true si este equipo es el del tratamiento [episodioEsperado].
+  /// Un equipo sin asignar no contradice a nadie, así que no se lo considera ajeno.
+  bool esDe(String? episodioEsperado) {
+    if (episodioEsperado == null || episodioEsperado.isEmpty || sinAsignar) return true;
+    return episodio == episodioEsperado;
+  }
+}
+
+/// Lo que el médico prescribió y el equipo tiene cargado (0005).
+/// Un cambio mandado por Bluetooth queda *pendiente* hasta que alguien lo confirma
+/// con el pulsador del equipo: ningún cambio remoto mueve el umbral solo.
+class ConfigEquipo {
+  final double limiteSup;
+  final double limiteInf;
+  final double pesoKg;
+  final double pendienteSup;
+  final double pendienteInf;
+  final double pendientePesoKg;
+  final bool hayPendiente;
+
+  const ConfigEquipo({
+    required this.limiteSup,
+    required this.limiteInf,
+    required this.pesoKg,
+    required this.pendienteSup,
+    required this.pendienteInf,
+    required this.pendientePesoKg,
+    required this.hayPendiente,
+  });
+
+  /// Lo que se le manda al médico para que vea qué quedó cargado en la ortesis.
+  /// El paciente no ve nada de esto: son valores en %PC.
+  Map<String, Object> aJson() => {
+        'limite_sup': limiteSup,
+        'limite_inf': limiteInf,
+        'peso_kg': pesoKg,
+        'hay_pendiente': hayPendiente,
+        if (hayPendiente) 'pendiente_sup': pendienteSup,
+        if (hayPendiente) 'pendiente_inf': pendienteInf,
+        if (hayPendiente) 'pendiente_peso_kg': pendientePesoKg,
+      };
+}
+
 /// Resumen del día (Anexo A). Los índices se derivan acá, no en el equipo.
 class ResumenDiario {
   final DateTime inicioDia;

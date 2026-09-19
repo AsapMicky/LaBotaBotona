@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { leerResumen, leerRegistro, SEQ_FIN, TAM_RESUMEN, TAM_REGISTRO } from './consultorio.js'
+import { leerResumen, leerRegistro, leerInfo, leerConfig, SEQ_FIN, TAM_RESUMEN, TAM_REGISTRO } from './consultorio.js'
 
 const vec = JSON.parse(readFileSync(new URL('../../../docs/protocolo-vectores.json', import.meta.url), 'utf8'))
 
@@ -61,6 +61,29 @@ for (const v of vec.registro) {
     const d = vista(v.bytes)
     assert.equal(d.byteLength, TAM_REGISTRO)
     compararRegistro(leerRegistro(d, 0), v.esperado)
+  })
+}
+
+for (const v of vec.info) {
+  test(`info del equipo: ${v.nombre}`, () => {
+    const i = leerInfo(vista(v.bytes))
+    assert.equal(i.protocolo, v.esperado.protocolo)
+    assert.equal(i.firmware, v.esperado.firmware)
+    assert.equal(i.serie, v.esperado.serie)
+    assert.equal(i.episodio, v.esperado.episodio)
+  })
+}
+
+for (const v of vec.config) {
+  test(`configuración del equipo: ${v.nombre}`, () => {
+    const c = leerConfig(vista(v.bytes))
+    cerca(c.limite_sup, v.esperado.limite_sup, 'limite_sup')
+    cerca(c.limite_inf, v.esperado.limite_inf, 'limite_inf')
+    cerca(c.peso_kg, v.esperado.peso_kg, 'peso_kg')
+    cerca(c.pendiente_sup, v.esperado.pendiente_sup, 'pendiente_sup')
+    cerca(c.pendiente_inf, v.esperado.pendiente_inf, 'pendiente_inf')
+    cerca(c.pendiente_peso_kg, v.esperado.pendiente_peso_kg, 'pendiente_peso_kg')
+    assert.equal(c.hay_pendiente, v.esperado.hay_pendiente)
   })
 }
 

@@ -8,36 +8,59 @@ import 'package:flutter/foundation.dart';
 import '../almacen/almacen.dart';
 
 final RegExp _uuid = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+final RegExp _hex16 = RegExp(r'^[0-9a-f]{16}$');
 
-/// Saca el token de lo que trae el QR: `{"t": "<uuid>"}` (lo que genera la web)
-/// o el uuid pelado (por si se copia a mano). Devuelve null si no es un token.
-String? tokenDesdeQr(String texto) {
+/// Lo que viaja en el QR que muestra la web: el token del episodio, que es la
+/// credencial, y el identificador corto del episodio, que es el mismo que el médico
+/// le escribe a la ortesis. Con los dos, la app puede verificar que la ortesis que
+/// está leyendo sea la de este tratamiento y no la de otro paciente.
+class DatosQr {
+  final String token;
+
+  /// 16 caracteres hex. Vacío si el QR es de una versión anterior.
+  final String episodio;
+
+  const DatosQr(this.token, this.episodio);
+}
+
+/// Interpreta el QR: `{"t": "<uuid>", "e": "<16 hex>"}` (lo que genera la web),
+/// o el uuid pelado (por si se copia a mano). Devuelve null si no es de esta app.
+DatosQr? datosDesdeQr(String texto) {
   final t = texto.trim();
   if (t.isEmpty) return null;
-  String candidato = t;
+  var candidato = t;
+  var episodio = '';
   if (t.startsWith('{')) {
     try {
       final m = jsonDecode(t);
       if (m is! Map || m['t'] is! String) return null;
       candidato = m['t'] as String;
+      if (m['e'] is String) episodio = (m['e'] as String).trim().toLowerCase();
     } on FormatException {
       return null;
     }
   }
   candidato = candidato.trim().toLowerCase();
-  return _uuid.hasMatch(candidato) ? candidato : null;
+  if (!_uuid.hasMatch(candidato)) return null;
+  if (!_hex16.hasMatch(episodio)) episodio = ''; // un episodio dudoso es peor que ninguno
+  return DatosQr(candidato, episodio);
 }
 
 class Vinculacion {
   final String token;
+  final String episodio;
   final DateTime desde;
 
-  const Vinculacion({required this.token, required this.desde});
+  const Vinculacion({required this.token, required this.episodio, required this.desde});
 
-  Map<String, Object> aJson() => {'token': token, 'desde': desde.toIso8601String()};
+  Map<String, Object> aJson() =>
+      {'token': token, 'episodio': episodio, 'desde': desde.toIso8601String()};
 
-  factory Vinculacion.desdeJson(Map<String, dynamic> m) =>
-      Vinculacion(token: m['token'] as String, desde: DateTime.parse(m['desde'] as String));
+  factory Vinculacion.desdeJson(Map<String, dynamic> m) => Vinculacion(
+        token: m['token'] as String,
+        episodio: (m['episodio'] as String?) ?? '',
+        desde: DateTime.parse(m['desde'] as String),
+      );
 }
 
 enum EstadoVinculacion {
@@ -67,6 +90,9 @@ class ControladorVinculacion extends ChangeNotifier {
   bool get cargado => _cargado;
   String? get token => _actual?.token;
 
+  /// El episodio que el equipo tendría que tener cargado. Vacío si el QR no lo traía.
+  String get episodio => _actual?.episodio ?? '';
+
   EstadoVinculacion get estado {
     if (_actual == null) return EstadoVinculacion.sinVincular;
     return _revocada ? EstadoVinculacion.revocada : EstadoVinculacion.vinculada;
@@ -86,9 +112,9 @@ class ControladorVinculacion extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Guarda un token nuevo. Escanear otro QR reemplaza al anterior y borra la revocación.
-  Future<void> vincular(String token) async {
-    _actual = Vinculacion(token: token, desde: DateTime.now());
+  /// Guarda un QR nuevo. Escanear otro reemplaza al anterior y borra la revocación.
+  Future<void> vincular(DatosQr datos) async {
+    _actual = Vinculacion(token: datos.token, episodio: datos.episodio, desde: DateTime.now());
     _revocada = false;
     await _almacen.escribir(_clave, jsonEncode(_actual!.aJson()));
     await _almacen.borrar(_claveRevocada);

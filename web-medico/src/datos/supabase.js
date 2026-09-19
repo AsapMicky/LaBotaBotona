@@ -71,11 +71,11 @@ export function crearFuenteSupabase(url, clave) {
     // Lo que se bajó de la ortesis en la consulta va por la misma puerta que usa la app:
     // la función `subir-datos`, que valida el token del episodio del lado del servidor.
     // Las policies no dejan escribir estas tablas desde el navegador, y está bien así.
-    async subirDesdeOrtesis(token, { resumenes = [], registros = [] }) {
+    async subirDesdeOrtesis(token, { resumenes = [], registros = [], equipo }) {
       const r = await fetch(`${url.replace(/\/+$/, '')}/functions/v1/subir-datos`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ token, resumenes, registros }),
+        body: JSON.stringify({ token, resumenes, registros, ...(equipo ? { equipo } : {}) }),
       })
       if (!r.ok) throw new Error(await r.text() || `El servidor respondió ${r.status}`)
       return r.json()

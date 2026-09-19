@@ -17,15 +17,19 @@ Nunca muestra valores de carga (pedido de la cátedra).
 
 ## Cómo se sube
 
-1. Cuando el equipo se conecta, el sincronizador le pide tres cosas y las encola en el teléfono: el resumen
-   del día en curso, los resúmenes de los días ya cerrados que todavía no bajó, y los registros por minuto
-   desde el último confirmado. Los días cerrados son los que tapan el hueco cuando el paciente pasa días
-   sin abrir la app: el equipo los guarda solo, al pasar cada medianoche.
-2. Si hay token y servidor, manda `{token, resumenes, registros}` a `subir-datos`. El servidor hace upsert por
+1. Cuando el equipo se conecta, lo primero es **verificar de quién es**: la app lee el episodio que tiene
+   cargado la ortesis (0007) y lo compara con el que vino en el QR. Si es de otro tratamiento, no se toca
+   nada y se avisa. La app se conecta a la ortesis que mejor se escucha, y en un consultorio esa puede no
+   ser la del paciente.
+2. Después le pide tres cosas y las encola en el teléfono: el resumen del día en curso, los resúmenes de
+   los días ya cerrados que todavía no bajó, y los registros por minuto desde el último confirmado. Los
+   días cerrados son los que tapan el hueco cuando el paciente pasa días sin abrir la app: el equipo los
+   guarda solo, al pasar cada medianoche.
+3. Si hay token y servidor, manda `{token, resumenes, registros}` a `subir-datos`. El servidor hace upsert por
    (episodio, fecha) y (episodio, minuto): reintentar nunca duplica.
-3. Si falla (sin señal, servidor caído), reintenta con espera creciente (30 s … 15 min). Nada se borra hasta que
+4. Si falla (sin señal, servidor caído), reintenta con espera creciente (30 s … 15 min). Nada se borra hasta que
    el servidor confirma.
-4. Si el servidor contesta que el episodio está cerrado, la app marca la vinculación como revocada y deja de insistir.
+5. Si el servidor contesta que el episodio está cerrado, la app marca la vinculación como revocada y deja de insistir.
 
 Sin `SUPABASE_URL` la app no sube nada y todo queda en el celular (sirve para diseñar). Para probar la subida sin
 Supabase: `node scripts/subir-datos-falso.mjs` en la PC y correr la app con

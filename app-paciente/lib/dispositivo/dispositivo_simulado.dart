@@ -6,6 +6,12 @@ import 'modelo.dart';
 
 /// Genera estados verosímiles para trabajar la interfaz sin hardware.
 class DispositivoSimulado implements Dispositivo {
+  /// Vacío imita a un devkit que el médico todavía no asignó, que es el caso normal
+  /// mientras no hay plantilla. Con un valor sirve para probar la verificación.
+  final String episodioAsignado;
+
+  DispositivoSimulado({this.episodioAsignado = ''});
+
   final _conexion = StreamController<EstadoConexion>.broadcast();
   final _estado = StreamController<EstadoVivo>.broadcast();
   final _azar = Random();
@@ -67,6 +73,25 @@ class DispositivoSimulado implements Dispositivo {
     _timer?.cancel();
     _conexion.add(EstadoConexion.desconectado);
   }
+
+  @override
+  Future<InfoEquipo> leerInfo() async => InfoEquipo(
+        protocolo: 1,
+        firmware: '0.1.0',
+        serie: 'SIM1',
+        episodio: episodioAsignado,
+      );
+
+  @override
+  Future<ConfigEquipo> leerConfig() async => const ConfigEquipo(
+        limiteSup: 20,
+        limiteInf: 10,
+        pesoKg: 70,
+        pendienteSup: 20,
+        pendienteInf: 10,
+        pendientePesoKg: 70,
+        hayPendiente: false,
+      );
 
   @override
   Future<ResumenDiario> leerResumen() async {

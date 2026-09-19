@@ -4,6 +4,7 @@ import { diasEntre, fmt, indices } from '../datos/indices.js'
 import GraficoDosis from '../componentes/GraficoDosis.jsx'
 import CarrilVentana from '../componentes/CarrilVentana.jsx'
 import Consultorio from '../componentes/Consultorio.jsx'
+import QrVinculacion from '../componentes/QrVinculacion.jsx'
 
 const media = (xs) => {
   const v = xs.filter((x) => x != null)
@@ -35,6 +36,7 @@ export default function Reporte({ paciente, onCambio }) {
   const [epId, setEpId] = useState(null)
   const [resumenes, setResumenes] = useState(null)
   const [ventana, setVentana] = useState(14)
+  const [mostrarQr, setMostrarQr] = useState(false)
 
   useEffect(() => {
     fuente.episodiosDe(paciente.id).then((eps) => {
@@ -155,10 +157,91 @@ export default function Reporte({ paciente, onCambio }) {
             </>
           )}
 
+          {!ep.fin && (
+            <section className="bloque">
+              <div className="bloque-cabecera">
+                <h2>La app del paciente</h2>
+                <button onClick={() => setMostrarQr((v) => !v)}>
+                  {mostrarQr ? 'Ocultar el código' : 'Mostrar el código'}
+                </button>
+              </div>
+              {mostrarQr && (
+                <div className="alta-qr">
+                  <QrVinculacion episodio={ep} tamano={180} />
+                  <div>
+                    <p>El paciente lo escanea desde la app y queda vinculado a este tratamiento, sin crear una cuenta.</p>
+                    <p className="suave">
+                      Sirve también si cambió de teléfono: mostráselo de nuevo y listo. El código anterior deja de
+                      funcionar solo cuando se cierra el tratamiento.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <EquipoCargado ep={ep} />
+            </section>
+          )}
+
           {!ep.fin && <Consultorio episodio={ep} onCerrado={onCambio} onDatos={recargarResumenes} />}
         </>
       )}
     </article>
+  )
+}
+
+// Qué tiene cargado la ortesis de verdad, según lo último que informó. Es la forma de
+// confirmar que la indicación llegó al equipo y que alguien la confirmó con el pulsador:
+// un límite enviado por Bluetooth no entra en vigencia hasta ese momento.
+function EquipoCargado({ ep }) {
+  const v = ep.equipo_visto
+  if (!v) {
+    return (
+      <p className="nota">
+        La ortesis todavía no informó su configuración. Aparece cuando el paciente sincroniza la app
+        o cuando la descargás en la consulta.
+      </p>
+    )
+  }
+  const igual = (a, b) => Math.abs(Number(a) - Number(b)) < 0.05
+  const limitesOk = igual(v.limite_sup, ep.limite_sup) && igual(v.limite_inf, ep.limite_inf)
+  const pesoOk = !ep.peso_kg || igual(v.peso_kg, ep.peso_kg)
+  const episodioOk = !v.episodio || v.episodio === ep.id.replace(/-/g, '').slice(0, 16)
+  const cuando = ep.equipo_visto_en
+    ? new Date(ep.equipo_visto_en).toLocaleString('es-AR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : null
+
+  return (
+    <div className="equipo-cargado">
+      <p>
+        La ortesis {v.serie ? <strong>N.º {v.serie}</strong> : 'conectada'}
+        {v.firmware && <span className="suave"> (firmware {v.firmware})</span>}
+        {cuando && <span className="suave"> informó el {cuando}</span>}:{' '}
+        {v.limite_inf > 0
+          ? `entre ${fmt.num(v.limite_inf)} y ${fmt.num(v.limite_sup)} %`
+          : `hasta ${fmt.num(v.limite_sup)} %`} del peso corporal, con {fmt.num(v.peso_kg)} kg de peso.
+      </p>
+      <ul className="observaciones">
+        {limitesOk && pesoOk && episodioOk && <li>Coincide con la indicación de este tratamiento.</li>}
+        {!limitesOk && (
+          <li>
+            <strong>Los límites no coinciden</strong> con la indicación
+            ({ep.limite_inf > 0 ? `${fmt.num(ep.limite_inf)} a ` : 'hasta '}{fmt.num(ep.limite_sup)} %).
+            Enviala de nuevo desde la consulta y confirmala con el botón del equipo.
+          </li>
+        )}
+        {!pesoOk && (
+          <li><strong>El peso no coincide</strong>: el tratamiento dice {fmt.num(ep.peso_kg)} kg. Los %PC salen mal.</li>
+        )}
+        {!episodioOk && (
+          <li><strong>Esta ortesis está asignada a otro tratamiento.</strong> Reasignala antes de usarla.</li>
+        )}
+        {v.hay_pendiente && (
+          <li>
+            Hay un cambio <strong>esperando confirmación</strong>: el paciente tiene que mantener apretado
+            el botón de la ortesis 2 segundos para que entre en vigencia.
+          </li>
+        )}
+      </ul>
+    </div>
   )
 }
 

@@ -43,10 +43,13 @@ class ClienteSubirDatos {
         _http = cliente ?? http.Client(),
         _anonKey = anonKey;
 
+  /// [equipo] es lo que la ortesis dice de sí misma: serie, firmware y qué límites
+  /// tiene cargados. Le sirve al médico para confirmar que la indicación llegó.
   Future<RespuestaSubida> subir({
     required String token,
     List<Map<String, Object>> resumenes = const [],
     List<Map<String, Object>> registros = const [],
+    Map<String, Object>? equipo,
   }) async {
     final http.Response r;
     try {
@@ -58,7 +61,12 @@ class ClienteSubirDatos {
               if (_anonKey != null) 'apikey': _anonKey,
               if (_anonKey != null) 'authorization': 'Bearer $_anonKey',
             },
-            body: jsonEncode({'token': token, 'resumenes': resumenes, 'registros': registros}),
+            body: jsonEncode({
+              'token': token,
+              'resumenes': resumenes,
+              'registros': registros,
+              if (equipo != null) 'equipo': equipo,
+            }),
           )
           .timeout(const Duration(seconds: 30));
     } on TimeoutException {

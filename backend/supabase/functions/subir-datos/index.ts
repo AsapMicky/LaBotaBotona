@@ -1,5 +1,6 @@
 // Recibe los datos que la app del paciente descargó del equipo.
 // El paciente no tiene cuenta: se autentica con el token_sync del QR.
+// La web del médico usa esta misma función cuando descarga la ortesis en la consulta.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 type Resumen = {
@@ -9,6 +10,12 @@ type Resumen = {
 type Registro = {
   ts: string; carga_media: number; carga_pico: number; dosis: number;
   excedencias: number; seg_apoyo: number;
+};
+// Lo que la ortesis dice de sí misma. Nada de esto identifica a una persona.
+type Equipo = {
+  serie?: string; firmware?: string; episodio?: string;
+  limite_sup?: number; limite_inf?: number; peso_kg?: number;
+  hay_pendiente?: boolean; pendiente_sup?: number; pendiente_inf?: number; pendiente_peso_kg?: number;
 };
 
 const cors = {
@@ -20,7 +27,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return new Response("Método no permitido", { status: 405, headers: cors });
 
-  let body: { token?: string; resumenes?: Resumen[]; registros?: Registro[] };
+  let body: { token?: string; resumenes?: Resumen[]; registros?: Registro[]; equipo?: Equipo };
   try { body = await req.json(); } catch { return new Response("JSON inválido", { status: 400, headers: cors }); }
   if (!body.token) return new Response("Falta el token del episodio", { status: 400, headers: cors });
 
@@ -42,5 +49,18 @@ Deno.serve(async (req) => {
     const { error: e } = await db.from("registros_minuto").upsert(registros.slice(i, i + 1000));
     if (e) return new Response(e.message, { status: 400, headers: cors });
   }
-  return Response.json({ ok: true, resumenes: resumenes.length, registros: registros.length }, { headers: cors });
+
+  // Qué límites tiene cargados la ortesis. Le deja ver al médico si la indicación que
+  // mandó llegó y fue confirmada con el pulsador del equipo.
+  if (body.equipo) {
+    const { error: e } = await db.from("episodios")
+      .update({ equipo_visto: body.equipo, equipo_visto_en: new Date().toISOString() })
+      .eq("id", ep.id);
+    if (e) return new Response(e.message, { status: 400, headers: cors });
+  }
+
+  return Response.json(
+    { ok: true, resumenes: resumenes.length, registros: registros.length, equipo: !!body.equipo },
+    { headers: cors },
+  );
 });

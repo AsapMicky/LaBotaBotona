@@ -42,6 +42,35 @@ export function leerResumen(v, o = 0) {
   }
 }
 
+/** Info de 32 B (0007): quién es el equipo y a qué tratamiento está asignado. */
+export function leerInfo(v) {
+  const txt = (o, n) => {
+    const b = new Uint8Array(v.buffer, v.byteOffset + o, n)
+    const fin = b.indexOf(0)
+    return new TextDecoder().decode(fin === -1 ? b : b.subarray(0, fin))
+  }
+  return {
+    protocolo: v.getUint8(0),
+    firmware: `${v.getUint8(1)}.${v.getUint8(2)}.${v.getUint8(3)}`,
+    serie: txt(4, 12),
+    episodio: txt(16, 16),
+  }
+}
+
+/** Configuración de 13 B (0005): lo que el equipo tiene cargado, más lo pendiente. */
+export function leerConfig(v) {
+  const x10 = (o) => v.getUint16(o, true) / 10
+  return {
+    limite_sup: x10(0),
+    limite_inf: x10(2),
+    peso_kg: x10(4),
+    pendiente_sup: x10(6),
+    pendiente_inf: x10(8),
+    pendiente_peso_kg: x10(10),
+    hay_pendiente: v.getUint8(12) !== 0,
+  }
+}
+
 /** Registro por minuto de 12 B (paquetes de 0004). */
 export function leerRegistro(v, o = 0) {
   return {
@@ -117,14 +146,7 @@ export async function conectarOrtesis() {
   return {
     nombre: equipo.name,
     async leerInfo() {
-      const v = await (await car(INFO)).readValue()
-      const txt = (o, n) => new TextDecoder().decode(new Uint8Array(v.buffer, o, n)).replace(/\0+$/, '')
-      return {
-        protocolo: v.getUint8(0),
-        firmware: `${v.getUint8(1)}.${v.getUint8(2)}.${v.getUint8(3)}`,
-        serie: txt(4, 12),
-        episodio: txt(16, 16),
-      }
+      return leerInfo(await (await car(INFO)).readValue())
     },
     /** Asigna el episodio: se guardan los primeros 16 caracteres hex del UUID. */
     async escribirEpisodio(episodioId) {
@@ -140,6 +162,10 @@ export async function conectarOrtesis() {
       d.setUint16(2, Math.round((limite_inf || 0) * 10), true)
       d.setUint16(4, Math.round((peso_kg || 0) * 10), true)
       await (await car(CONFIG)).writeValue(d)
+    },
+    /** Los límites y el peso que el equipo tiene cargados ahora mismo. */
+    async leerConfig() {
+      return leerConfig(await (await car(CONFIG)).readValue())
     },
     /** El día en curso, que el equipo todavía está acumulando. */
     async leerResumenHoy() {

@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../dispositivo/dispositivo.dart';
+import '../dispositivo/modelo.dart';
 import '../vinculacion/vinculacion.dart';
 import 'cliente_subir_datos.dart';
 import 'cola_subida.dart';
@@ -26,6 +27,9 @@ class Sincronizador extends ChangeNotifier {
   bool _subiendo = false;
   bool _pedidoPendiente = false;
   bool _leyendoEquipo = false;
+  bool _equipoAjeno = false;
+  InfoEquipo? _info;
+  ConfigEquipo? _config;
   int _intentos = 0;
   String? _ultimoError;
   String? _tokenVerificado;
@@ -51,6 +55,25 @@ class Sincronizador extends ChangeNotifier {
 
   bool get servidorConfigurado => _cliente != null;
   bool get subiendo => _subiendo;
+
+  /// La ortesis que se leyó está asignada a **otro** tratamiento. No se sube nada:
+  /// mezclar los datos de dos pacientes en una ficha es peor que no tener datos.
+  bool get equipoAjeno => _equipoAjeno;
+  InfoEquipo? get info => _info;
+  ConfigEquipo? get config => _config;
+
+  /// Lo que la ortesis dice de sí misma, para que el médico vea qué quedó cargado.
+  Map<String, Object>? get _equipoJson {
+    final i = _info;
+    if (i == null) return null;
+    final c = _config;
+    return {
+      'serie': i.serie,
+      'firmware': i.firmware,
+      'episodio': i.episodio,
+      if (c != null) ...c.aJson(),
+    };
+  }
   String? get ultimoError => _ultimoError;
   int get diasPendientes => _cola.diasPendientes;
   int get registrosPendientes => _cola.registrosPendientes;
@@ -82,6 +105,18 @@ class Sincronizador extends ChangeNotifier {
     await _colaLista; // no encolar sobre una cola a medio cargar: pisaría lo pendiente
     _leyendoEquipo = true;
     try {
+      // Primero, de quién es esta ortesis. Si está asignada a otro tratamiento, no se
+      // toca nada: la app se conecta a la que mejor se escucha, y en un consultorio
+      // con varias ortesis esa puede no ser la del paciente.
+      _info = await _dispositivo.leerInfo();
+      if (!_info!.esDe(_vinculacion.episodio)) {
+        _equipoAjeno = true;
+        notifyListeners();
+        return;
+      }
+      _equipoAjeno = false;
+      _config = await _dispositivo.leerConfig();
+
       // El día en curso, que el equipo sigue acumulando.
       await _cola.encolarResumen(await _dispositivo.leerResumen());
 
@@ -125,7 +160,12 @@ class Sincronizador extends ChangeNotifier {
       while (true) {
         final lote = _cola.tomarLote();
         if (lote.vacio && _tokenVerificado == token) break;
-        final resp = await cliente.subir(token: token, resumenes: lote.resumenes, registros: lote.registros);
+        final resp = await cliente.subir(
+          token: token,
+          resumenes: lote.resumenes,
+          registros: lote.registros,
+          equipo: _equipoJson,
+        );
         switch (resp) {
           case SubidaOk():
             _tokenVerificado = token;

@@ -179,6 +179,32 @@ void test_paquete_resumenes() {
   }
 }
 
+// 0005 · Configuración: los límites y el peso que el equipo tiene cargados.
+void test_config() {
+  for (JsonObject v : doc["config"].as<JsonArray>()) {
+    JsonObject in = v["entrada"];
+    proto::Ajustes activo{in["activo"]["L"], in["activo"]["Lmin"], in["activo"]["peso_kg"]};
+    proto::Ajustes pendiente{in["pendiente"]["L"], in["pendiente"]["Lmin"], in["pendiente"]["peso_kg"]};
+    uint8_t b[proto::TAM_CONFIG];
+    proto::codificarConfig(b, activo, pendiente, in["hay_pendiente"].as<bool>());
+    compararBytes(v["nombre"], desdeHexa(v["bytes"]), b, sizeof b);
+  }
+}
+
+// 0007 · Info y episodio. El episodio es el único identificador que guarda el equipo.
+void test_info() {
+  for (JsonObject v : doc["info"].as<JsonArray>()) {
+    JsonObject in = v["entrada"];
+    char serie[proto::LARGO_SERIE + 1] = {0};
+    char episodio[proto::LARGO_EPISODIO] = {0};
+    std::strncpy(serie, in["serie"].as<const char*>(), proto::LARGO_SERIE);
+    std::strncpy(episodio, in["episodio"].as<const char*>(), proto::LARGO_EPISODIO);
+    uint8_t b[proto::TAM_INFO];
+    proto::codificarInfo(b, in["fw_mayor"], in["fw_menor"], in["fw_parche"], serie, episodio);
+    compararBytes(v["nombre"], desdeHexa(v["bytes"]), b, sizeof b);
+  }
+}
+
 // Estos los escribe la app y los DECODIFICA el firmware (callbacks de main.cpp).
 void test_pedido_historial() {
   for (JsonObject v : doc["pedido_historial"].as<JsonArray>()) {
@@ -215,6 +241,8 @@ int main() {
   RUN_TEST(test_registro);
   RUN_TEST(test_paquete_historial);
   RUN_TEST(test_paquete_resumenes);
+  RUN_TEST(test_config);
+  RUN_TEST(test_info);
   RUN_TEST(test_pedido_historial);
   RUN_TEST(test_pedido_resumenes);
   RUN_TEST(test_hora);

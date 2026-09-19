@@ -94,7 +94,16 @@ pulsación larga en el equipo. Ningún cambio remoto modifica el umbral sin vali
 **Lectura (32 B):** `u8 versión protocolo, u8 fw_mayor, u8 fw_menor, u8 fw_parche, char[12] serie, char[16] episodio`
 (el episodio son los primeros 16 hex del UUID, o ceros si no hay).
 **Escritura (16 B):** `char[16] episodio`. Solo la hace la web del médico al dar de alta. Escribir 16 ceros
-cierra el episodio y **borra el historial** (devolución del equipo).
+cierra el episodio y **borra el historial y los resúmenes** (devolución del equipo).
+
+El episodio es **el único identificador que guarda el equipo**, y es la clave que une a los tres:
+el médico se lo escribe acá, el QR se lo pasa a la app, y la app lo usa para verificar que la
+ortesis que está leyendo sea la de su paciente antes de subir nada. Ni nombre ni documento van al
+equipo: rota entre pacientes (decisión 002, Ley 25.326).
+
+**El equipo tiene que recordar el episodio y los límites entre reinicios.** Si los pierde al
+quedarse sin batería, vuelve a los valores de fábrica y queda midiendo contra un límite que nadie
+prescribió. Va en NVS, no en RAM.
 
 ## Pendiente para versiones siguientes
 - Emparejamiento con passkey (hoy cualquiera en rango puede leer; aceptable en banco, no en uso real).

@@ -11,6 +11,13 @@ abstract class Dispositivo {
   Future<void> conectar();
   Future<void> desconectar();
 
+  /// Quién es el equipo y a qué tratamiento está asignado. Es lo que permite
+  /// verificar que la ortesis que se está leyendo sea la del paciente.
+  Future<InfoEquipo> leerInfo();
+
+  /// Los límites y el peso que el equipo tiene cargados.
+  Future<ConfigEquipo> leerConfig();
+
   /// El día **en curso**, que el equipo todavía está acumulando.
   Future<ResumenDiario> leerResumen();
 

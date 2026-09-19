@@ -50,6 +50,61 @@ void main() {
     }
   });
 
+  group('info del equipo', () {
+    for (final v in vec['info'] as List) {
+      test(v['nombre'], () {
+        final esp = v['esperado'] as Map<String, dynamic>;
+        final i = decodificarInfo(_desdeHexa(v['bytes']));
+        expect(i.protocolo, esp['protocolo']);
+        expect(i.firmware, esp['firmware']);
+        expect(i.serie, esp['serie']);
+        expect(i.episodio, esp['episodio']);
+        expect(i.sinAsignar, (esp['episodio'] as String).isEmpty);
+      });
+    }
+
+    test('un equipo sin asignar no se considera ajeno', () {
+      const sinAsignar = InfoEquipo(protocolo: 1, firmware: '0.1.0', serie: '0001', episodio: '');
+      expect(sinAsignar.esDe('3f2504e04f8941d3'), isTrue);
+    });
+
+    test('un equipo de otro tratamiento sí', () {
+      const otro = InfoEquipo(protocolo: 1, firmware: '0.1.0', serie: '0002', episodio: '0b8352b78feb4314');
+      expect(otro.esDe('3f2504e04f8941d3'), isFalse);
+      expect(otro.esDe('0b8352b78feb4314'), isTrue);
+      expect(otro.esDe(''), isTrue, reason: 'sin QR nuevo no hay con qué comparar');
+    });
+  });
+
+  group('configuración del equipo', () {
+    for (final v in vec['config'] as List) {
+      test(v['nombre'], () {
+        final esp = v['esperado'] as Map<String, dynamic>;
+        final c = decodificarConfig(_desdeHexa(v['bytes']));
+        expect(c.limiteSup, _cerca(esp['limite_sup'] as num));
+        expect(c.limiteInf, _cerca(esp['limite_inf'] as num));
+        expect(c.pesoKg, _cerca(esp['peso_kg'] as num));
+        expect(c.pendienteSup, _cerca(esp['pendiente_sup'] as num));
+        expect(c.pendienteInf, _cerca(esp['pendiente_inf'] as num));
+        expect(c.pendientePesoKg, _cerca(esp['pendiente_peso_kg'] as num));
+        expect(c.hayPendiente, esp['hay_pendiente']);
+      });
+    }
+
+    test('lo pendiente solo se manda si hay algo pendiente', () {
+      const sin = ConfigEquipo(
+        limiteSup: 20, limiteInf: 10, pesoKg: 70,
+        pendienteSup: 25, pendienteInf: 5, pendientePesoKg: 71, hayPendiente: false,
+      );
+      expect(sin.aJson().containsKey('pendiente_sup'), isFalse);
+      const con = ConfigEquipo(
+        limiteSup: 20, limiteInf: 10, pesoKg: 70,
+        pendienteSup: 25, pendienteInf: 5, pendientePesoKg: 71, hayPendiente: true,
+      );
+      expect(con.aJson()['pendiente_sup'], 25);
+    });
+  });
+
   void compararResumen(ResumenDiario r, Map<String, dynamic> esp) {
     expect(r.inicioDia.millisecondsSinceEpoch ~/ 1000, esp['inicio_dia']);
     expect(r.inicioDia.isUtc, isTrue);
