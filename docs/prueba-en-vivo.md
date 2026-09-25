@@ -65,9 +65,14 @@ flutter build apk --release --dart-define=SUPABASE_URL=https://<tu-proyecto>.sup
    pantalla de la computadora. La primera vez pide permiso de cámara.
 6. La pantalla pasa a **"Vinculada con tu médico"**. Abajo, *Envío a tu médico* muestra los días
    pendientes bajando a cero y la fecha del último envío. Si tarda, *Enviar ahora*.
-7. **Volver a la web**, entrar al paciente nuevo y **recargar**. Aparecen **quince días**: los catorce
-   que el equipo tenía guardados de antes de la vinculación, más el día en curso. Cumplimiento,
-   excedencias, horas de apoyo y la curva de evolución completa.
+7. **Mirá la web sin tocar nada.** Dejá el reporte del paciente abierto en la pantalla mientras el
+   otro escanea. No hay que recargar: la web está suscrita a ese tratamiento y se actualiza sola.
+   Primero aparece *"App vinculada hoy · última sincronización hace unos segundos"*, y enseguida
+   los **quince días**: los catorce que el equipo tenía guardados de antes de la vinculación, más
+   el día en curso, con la curva de evolución completa.
+
+   Si la red del aula bloquea los WebSockets, la web se da cuenta y pasa a preguntar cada 20
+   segundos. Tarda un poco más, pero la demostración no se cae.
 
 Ese último punto es el que conviene remarcar: el equipo venía registrando **antes** de que existiera la
 vinculación, y guarda cada día al pasar la medianoche. La app no es la que mide, es la que transporta.

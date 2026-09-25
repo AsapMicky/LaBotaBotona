@@ -32,6 +32,22 @@ export const fmt = {
   fecha: (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }),
   fechaLarga: (iso) =>
     iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—',
+  // Cuánto hace que pasó algo, en palabras. Pasada una semana la cuenta deja de decir
+  // nada útil y conviene la fecha.
+  hace: (iso) => {
+    if (!iso) return '—'
+    const ms = Date.now() - new Date(iso).getTime()
+    if (Number.isNaN(ms)) return '—'
+    const seg = Math.max(0, Math.floor(ms / 1000))
+    if (seg < 60) return 'hace unos segundos'
+    const min = Math.floor(seg / 60)
+    if (min < 60) return `hace ${min} ${min === 1 ? 'minuto' : 'minutos'}`
+    const hs = Math.floor(min / 60)
+    if (hs < 24) return `hace ${hs} ${hs === 1 ? 'hora' : 'horas'}`
+    const dias = Math.floor(hs / 24)
+    if (dias < 8) return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`
+    return `el ${fmt.fechaLarga(iso.slice(0, 10))}`
+  },
 }
 
 export function diasEntre(desdeIso, hastaIso) {

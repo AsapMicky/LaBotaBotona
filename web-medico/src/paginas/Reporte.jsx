@@ -61,6 +61,45 @@ export default function Reporte({ paciente, onCambio }) {
     if (epId) setIndicaciones(await fuente.indicacionesDe(epId))
   }, [paciente.id, epId])
 
+  // Mientras el reporte está abierto, la web escucha lo que pasa con este episodio: si el
+  // paciente sincroniza, el gráfico y la marca de sincronización se actualizan solos.
+  // Si el canal no engancha (red que bloquea WebSockets), se cae a preguntar cada 20 s.
+  useEffect(() => {
+    if (!epId) return undefined
+    let vivo = true
+    let suscripto = false
+    let respaldo = null
+
+    const refrescar = async () => {
+      if (!vivo) return
+      const [res, eps] = await Promise.all([fuente.resumenesDe(epId), fuente.episodiosDe(paciente.id)])
+      if (!vivo) return
+      setResumenes(res)
+      setEpisodios(eps)
+    }
+    const arrancarRespaldo = () => { if (!respaldo) respaldo = setInterval(refrescar, 20000) }
+    const frenarRespaldo = () => { clearInterval(respaldo); respaldo = null }
+
+    // Si en unos segundos no llegó ninguna confirmación, no esperamos más.
+    const revisar = setTimeout(() => { if (!suscripto) arrancarRespaldo() }, 6000)
+
+    const cancelar = fuente.escucharEpisodio(epId, {
+      alCambiar: refrescar,
+      alEstado: (estado) => {
+        suscripto = estado === 'SUBSCRIBED'
+        if (suscripto) frenarRespaldo()
+        else arrancarRespaldo()
+      },
+    })
+
+    return () => {
+      vivo = false
+      clearTimeout(revisar)
+      frenarRespaldo()
+      cancelar?.()
+    }
+  }, [epId, paciente.id])
+
   // Después de descargar la ortesis en la consulta, el reporte se rearma solo.
   const recargarResumenes = async () => {
     if (epId) setResumenes(await fuente.resumenesDe(epId))
@@ -185,6 +224,7 @@ export default function Reporte({ paciente, onCambio }) {
                   </div>
                 </div>
               )}
+              <AppDelPaciente ep={ep} />
               <EquipoCargado ep={ep} />
             </section>
           )}
@@ -193,6 +233,38 @@ export default function Reporte({ paciente, onCambio }) {
         </>
       )}
     </article>
+  )
+}
+
+// Si el paciente escaneó el código y cuándo sincronizó por última vez. La app avisa cada
+// vez que habla con el servidor, incluso cuando no trae datos nuevos: el acuse que manda
+// apenas se escanea el QR es lo que marca la vinculación.
+function AppDelPaciente({ ep }) {
+  // Refresco suave para que "hace unos segundos" no se quede congelado entre sincronizaciones.
+  const [, redibujar] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => redibujar((n) => n + 1), 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (!ep.vinculada_en) {
+    return (
+      <p className="nota">
+        El paciente todavía no escaneó el código. Mientras tanto la ortesis sigue registrando:
+        los datos llegan igual cuando la descargues en la consulta.
+      </p>
+    )
+  }
+  const sinDatosHace = ep.ultima_sincronizacion
+    ? (Date.now() - new Date(ep.ultima_sincronizacion).getTime()) / 86400000
+    : null
+
+  return (
+    <p className={sinDatosHace > 3 ? 'nota' : undefined}>
+      App vinculada el <strong>{fmt.fechaLarga(ep.vinculada_en.slice(0, 10))}</strong>.{' '}
+      Última sincronización <strong>{fmt.hace(ep.ultima_sincronizacion)}</strong>.
+      {sinDatosHace > 3 && ' Puede que haya dejado de abrir la app.'}
+    </p>
   )
 }
 

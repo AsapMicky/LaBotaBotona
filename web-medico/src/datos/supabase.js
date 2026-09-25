@@ -90,10 +90,32 @@ export function crearFuenteSupabase(url, clave) {
       const r = await fetch(`${url.replace(/\/+$/, '')}/functions/v1/subir-datos`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ token, resumenes, registros, ...(equipo ? { equipo } : {}) }),
+        // `origen` importa: esto lo hace el médico en la consulta, no el paciente
+        // sincronizando, así que no cuenta como sincronización de la app.
+        body: JSON.stringify({ token, resumenes, registros, origen: 'consultorio', ...(equipo ? { equipo } : {}) }),
       })
       if (!r.ok) throw new Error(await r.text() || `El servidor respondió ${r.status}`)
       return r.json()
+    },
+
+    /**
+     * Avisa cuando algo cambia en el episodio que el médico está mirando: datos nuevos
+     * que subió la app, o el propio episodio (la marca de sincronización).
+     *
+     * Se filtra por episodio a propósito. Escuchar la tabla entera obligaría a evaluar
+     * las policies sobre cada fila que cambie en el sistema; así solo llega lo de este
+     * paciente. Devuelve la función para darse de baja.
+     */
+    escucharEpisodio(episodioId, { alCambiar, alEstado } = {}) {
+      const canal = db.channel(`episodio-${episodioId}`)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'resumenes_diarios', filter: `episodio_id=eq.${episodioId}` },
+          () => alCambiar?.())
+        .on('postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'episodios', filter: `id=eq.${episodioId}` },
+          () => alCambiar?.())
+        .subscribe((estado) => alEstado?.(estado))
+      return () => { db.removeChannel(canal) }
     },
   }
 }
