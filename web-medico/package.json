@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/ble/consultorio.test.js"
+    "test": "node --test src/ble/consultorio.test.js src/datos/indices.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -124,6 +124,26 @@ pone en vigencia. Si el peso no coincide, todos los %PC salen mal, y la web lo m
 **El nombre y el documento no salen de Supabase.** No van al equipo ni al QR: la ortesis rota entre
 pacientes y cada devolución sería una fuga. Ahí las policies por médico los protegen.
 
+## Cómo se entera la web
+
+La app y la web no se hablan: se encuentran en la base. Pero eso no alcanza para que se **note**.
+Hasta que se agregó esto, escanear el QR y no escanearlo se veían exactamente igual del lado del
+médico, y los datos que iban llegando no aparecían hasta recargar la página.
+
+Dos piezas lo resuelven, las dos del lado del servidor:
+
+1. **`subir-datos` marca cada vez que la app habla**, en `episodios.vinculada_en` y
+   `ultima_sincronizacion`. La app ya mandaba un acuse apenas se vincula, para validar el token;
+   ahora ese acuse deja rastro. Al hacerlo del lado del servidor, funciona con los teléfonos que
+   ya tienen la app instalada, sin recompilar nada. La descarga en la consulta manda
+   `origen: "consultorio"` y no cuenta como sincronización del paciente.
+2. **La web escucha con Realtime** el episodio que tiene abierto, filtrando por `episodio_id`.
+   Cuando el paciente sincroniza, el gráfico y la marca de sincronización se actualizan solos.
+   Si el canal no engancha, la web cae a preguntar cada 20 segundos.
+
+Se filtra por episodio y no por médico a propósito: escuchar la tabla entera obligaría a evaluar
+las policies contra cada fila que cambie en el sistema.
+
 ## Los dos caminos escriben por la misma puerta
 
 Ni la app ni la web escriben en `resumenes_diarios` ni en `registros_minuto`: las policies no lo

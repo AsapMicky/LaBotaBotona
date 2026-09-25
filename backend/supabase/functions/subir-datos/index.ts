@@ -27,14 +27,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return new Response("Método no permitido", { status: 405, headers: cors });
 
-  let body: { token?: string; resumenes?: Resumen[]; registros?: Registro[]; equipo?: Equipo };
+  let body: {
+    token?: string; resumenes?: Resumen[]; registros?: Registro[];
+    equipo?: Equipo; origen?: "app" | "consultorio";
+  };
   try { body = await req.json(); } catch { return new Response("JSON inválido", { status: 400, headers: cors }); }
   if (!body.token) return new Response("Falta el token del episodio", { status: 400, headers: cors });
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   const { data: ep, error } = await db.from("episodios")
-    .select("id").eq("token_sync", body.token).is("fin", null).maybeSingle();
+    .select("id, vinculada_en").eq("token_sync", body.token).is("fin", null).maybeSingle();
   if (error) return new Response(error.message, { status: 500, headers: cors });
   if (!ep) return new Response("Episodio inexistente o cerrado", { status: 404, headers: cors });
 
@@ -50,12 +53,26 @@ Deno.serve(async (req) => {
     if (e) return new Response(e.message, { status: 400, headers: cors });
   }
 
+  const ahora = new Date().toISOString();
+  const cambios: Record<string, unknown> = {};
+
   // Qué límites tiene cargados la ortesis. Le deja ver al médico si la indicación que
   // mandó llegó y fue confirmada con el pulsador del equipo.
   if (body.equipo) {
-    const { error: e } = await db.from("episodios")
-      .update({ equipo_visto: body.equipo, equipo_visto_en: new Date().toISOString() })
-      .eq("id", ep.id);
+    cambios.equipo_visto = body.equipo;
+    cambios.equipo_visto_en = ahora;
+  }
+
+  // La app se hace ver cada vez que habla, incluso cuando no trae datos: apenas se
+  // escanea el QR manda un acuse para validar el token, y ese acuse es la vinculación.
+  // La descarga en la consulta la hace el médico, así que no cuenta como sincronización.
+  if (body.origen !== "consultorio") {
+    cambios.ultima_sincronizacion = ahora;
+    if (!ep.vinculada_en) cambios.vinculada_en = ahora;
+  }
+
+  if (Object.keys(cambios).length) {
+    const { error: e } = await db.from("episodios").update(cambios).eq("id", ep.id);
     if (e) return new Response(e.message, { status: 400, headers: cors });
   }
 

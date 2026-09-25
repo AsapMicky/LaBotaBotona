@@ -140,6 +140,12 @@ export const fuenteMock = {
     await espera()
     return episodios.find((e) => e.id === episodioId)?.resumenes ?? []
   },
+  // En modo simulado no hay nada que escuchar: los datos solo cambian acá adentro.
+  // Se informa como suscripto para que la web no arranque la consulta de respaldo.
+  escucharEpisodio(episodioId, { alEstado } = {}) {
+    alEstado?.('SUBSCRIBED')
+    return () => {}
+  },
   async indicacionesDe(episodioId) {
     await espera()
     return (episodios.find((e) => e.id === episodioId)?.indicaciones ?? []).map((x) => ({ ...x }))

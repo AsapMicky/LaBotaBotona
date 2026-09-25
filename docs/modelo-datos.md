@@ -21,6 +21,9 @@ medico 1───n paciente 1───n episodio n───0..1 dispositivo
 - **Dispositivo**: número de serie y versión de firmware. Como máximo un episodio abierto por dispositivo.
 - **Estado del equipo** (`episodios.equipo_visto`): lo último que la ortesis informó de sí misma cuando
   alguien la leyó. Sirve para confirmar que la indicación llegó al equipo y con qué peso está calculando.
+- **Señales de la app** (`episodios.vinculada_en` y `ultima_sincronizacion`): cuándo el paciente escaneó
+  el QR y cuándo habló por última vez con el servidor. Las escribe `subir-datos`, no la app, así que
+  valen también para los teléfonos con una versión vieja instalada.
 - **Resumen diario / registro por minuto**: lo que baja del equipo, tal cual el protocolo.
 
 ## Quién accede a qué
