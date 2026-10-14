@@ -41,6 +41,24 @@ flutter run --dart-define=SUPABASE_URL=https://xxxx.supabase.co
 
 No necesita la `anon key`, porque la función está desplegada sin verificación de JWT.
 
+## Mantenerlo despierto
+
+El plan gratuito **pausa el proyecto tras una semana de poca actividad**. Ya pasó una vez: se pausó el
+6/10/2026 y hubo que despertarlo a mano. No se pierde nada —hay 90 días para restaurarlo y vuelve con
+todos los datos— pero mientras está pausado la web y la app no funcionan.
+
+La documentación de Supabase es clara en que no alcanza con entrar una vez: hacen falta *unas pocas
+consultas por día* a lo largo de toda la semana previa. Para eso está:
+
+```bash
+node scripts/mantener-viva.mjs
+```
+
+Hace tres consultas reales, avisa si la base está viva y recuerda cuándo fue la última vez que se corrió.
+Saca las credenciales de `web-medico/.env.local`. Usar la web normalmente también cuenta como actividad.
+
+Si igual se pausó: https://supabase.com/dashboard → el proyecto → **Resume project**.
+
 ## Claves
 
 La `anon key` es pública por diseño: lo que protege los datos son las políticas RLS del esquema.
