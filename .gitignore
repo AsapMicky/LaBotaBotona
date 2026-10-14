@@ -48,6 +48,8 @@ web-medico/.vite/
 # Supabase
 backend/supabase/.temp/
 backend/supabase/.branches/
+# Cuándo se corrió por última vez mantener-viva.mjs: es de esta máquina, no del repo.
+scripts/.ultimo-ping.json
 
 # KiCad
 hardware/**/*-backups/
