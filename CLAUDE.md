@@ -52,4 +52,7 @@ C(t) = carga en %PC (porcentaje del peso corporal). L = límite superior, Lmin =
 - No se guarda señal cruda en la flash: agregados por minuto (ver `docs/decisiones/003`).
 - Cambios al protocolo: actualizar doc + `docs/protocolo-vectores.json` + `firmware/lib/protocolo` +
   `app-paciente/lib/dispositivo/codec_ble.dart` + tests en el mismo PR.
+- Toda migración que cree una tabla en `public` incluye sus propios `grant` (ver `0007`). Supabase dejó
+  de otorgarlos solo el 30/10/2026. `anon` no recibe permisos sobre ninguna tabla: el médico entra con
+  cuenta y la app escribe por `subir-datos`.
 - Antes de proponer un PR, correr los tests del módulo tocado.
