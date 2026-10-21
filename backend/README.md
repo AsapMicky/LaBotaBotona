@@ -41,6 +41,16 @@ flutter run --dart-define=SUPABASE_URL=https://xxxx.supabase.co
 
 No necesita la `anon key`, porque la función está desplegada sin verificación de JWT.
 
+## Permisos de las tablas
+
+Desde el 30/10/2026 Supabase no otorga permisos automáticos a las tablas nuevas de `public`. La
+migración `0007` los deja escritos para las que ya existen, y fija los `alter default privileges`
+para las que vengan. **Toda migración que cree una tabla tiene que incluir sus propios `grant`.**
+
+`anon` no tiene permiso sobre ninguna tabla, a propósito: el médico consulta con su cuenta
+(`authenticated`) y la app del paciente no lee, solo escribe por `subir-datos` (que usa la
+`service_role key`). La anon key sigue haciendo falta para el login y para llamar a la función.
+
 ## Mantenerlo despierto
 
 El plan gratuito **pausa el proyecto tras una semana de poca actividad**. Ya pasó una vez: se pausó el

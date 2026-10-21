@@ -52,12 +52,19 @@ if (!url || !clave) {
 }
 
 // Varias tablas distintas, que es lo que la documentación llama "unas pocas consultas".
-//
-// A propósito no están `resumenes_diarios`, `indicaciones` ni `registros_minuto`: sus
-// policies llaman a `es_mi_episodio()`, que la migración 0003 le revocó a `anon`, así que
-// sin sesión contestan 401 en vez de una lista vacía. Es el modelo de seguridad andando
-// bien, pero ensucia la lectura de este script. Estas tres contestan 200 con `[]`.
 const tablas = ['dispositivos', 'episodios', 'pacientes']
+
+// Qué cuenta como señal de vida.
+//
+// No hace falta que la consulta devuelva datos: alcanza con que Postgres la haya atendido.
+// Un 401 por permisos lo emite Postgres después de evaluar el grant y la policy, así que
+// prueba que la base está despierta igual que un 200 con una lista vacía. Esto importa
+// porque la migración 0007 le revoca a `anon` la lectura de estas tablas: sin esta
+// distinción, el script cantaría "muerta" con la base perfectamente viva.
+//
+// Lo que sí indica problema es no recibir respuesta, o recibir un 5xx: ahí el que contesta
+// es el proxy de Supabase porque el proyecto está pausado o caído.
+const atendida = (codigo) => codigo < 500
 
 async function consultar(tabla) {
   const arranque = Date.now()
@@ -94,13 +101,14 @@ let viva = true
 for (const tabla of tablas) {
   try {
     const { codigo, ms, cuerpo } = await consultar(tabla)
-    // Con RLS por médico y sin sesión, la respuesta correcta es 200 con una lista vacía.
-    if (codigo === 200) {
-      console.log(`  ${tabla.padEnd(18)} ${codigo}  ${String(ms).padStart(5)} ms`)
+    const pausado = /pause/i.test(cuerpo)
+    if (atendida(codigo) && !pausado) {
+      // 200 es lectura permitida; 401/403 es Postgres diciendo que no, que también cuenta.
+      const nota = codigo === 200 ? '' : '  (sin permiso, pero contestó)'
+      console.log(`  ${tabla.padEnd(18)} ${codigo}  ${String(ms).padStart(5)} ms${nota}`)
     } else {
       viva = false
-      const pista = /pause/i.test(cuerpo) ? '  ← el proyecto está pausado' : ''
-      console.log(`  ${tabla.padEnd(18)} ${codigo}  ${String(ms).padStart(5)} ms${pista}`)
+      console.log(`  ${tabla.padEnd(18)} ${codigo}  ${String(ms).padStart(5)} ms${pausado ? '  ← el proyecto está pausado' : ''}`)
     }
   } catch (e) {
     viva = false
