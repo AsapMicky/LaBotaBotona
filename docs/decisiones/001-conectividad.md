@@ -14,7 +14,8 @@
 - La SD exige abrir la carcasa o dejar una ranura: peor estanqueidad y limpieza en un equipo que se reusa,
   riesgo de pérdida de la tarjeta con datos de salud.
 - BLE ya es necesario para la app del paciente, y el celular casi siempre tiene datos móviles.
-- La flash interna del ESP32-S3-N16 (16 MB) alcanza para años de agregados por minuto (ver 003).
+- La flash interna alcanza para todo un tratamiento de agregados por minuto. Con el hardware real
+  (ESP32 clásico, 4 MB) son unos 59 días, no los años que daba el diseño original de 16 MB (ver 003).
 
 ## Decisión
 La **flash interna es la fuente de verdad** y el registro nunca depende de la conectividad.

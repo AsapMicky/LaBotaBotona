@@ -26,6 +26,12 @@ medico 1───n paciente 1───n episodio n───0..1 dispositivo
   valen también para los teléfonos con una versión vieja instalada.
 - **Resumen diario / registro por minuto**: lo que baja del equipo, tal cual el protocolo.
 
+**Unidades.** Las cargas y las dosis se guardan en **%PC** y **%PC·min**, como define el Anexo A. El
+prototipo hoy mide en gramos y el puente es la calibración global contra balanza, que está pendiente
+(ver `docs/avances/`). El esquema no cambia por eso: lo que falta es el factor, no el modelo. Tener en
+cuenta, para cuando llegue ese momento, que `episodios.limite_sup` es `numeric(4,1)` con un
+`check (<= 100)`: está dimensionado para %PC y no aceptaría un valor en gramos.
+
 ## Quién accede a qué
 | Rol | Cuenta | Ve |
 |---|---|---|

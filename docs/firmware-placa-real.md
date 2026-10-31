@@ -7,6 +7,19 @@ arbitrarias y no lo son.
 
 Contexto general del proyecto: `CLAUDE.md` en la raíz. Este documento no lo reemplaza.
 
+> **Antes que nada, leer `docs/avances/`.** Este briefing se escribió en septiembre, cuando no había
+> electrónica armada, y suponía una cadena que al final no se usó. En octubre el equipo armó, validó y
+> calibró el prototipo, y **esa cadena es la definitiva**: CD4051B, MCP6002 con Rf = 4,7 kΩ, ADC interno
+> del **ESP32 clásico** y valores en gramos. No ADG708, no OPA2333, no ADS1115, no ESP32-S3.
+>
+> Las secciones corregidas están marcadas. Donde este documento y `docs/avances/` discrepen, mandan
+> los informes.
+>
+> Además existe un firmware que ya funciona, `alarma_con_display.ino` (Arduino IDE), fuera de este
+> repo: lee los 3 FSR, da la alarma, calcula los indicadores, corrige el cero, maneja reloj, registro
+> en LittleFS y pantalla. **No implementa BLE.** Lo que falta no es escribir todo de nuevo, sino unir
+> ese firmware con el protocolo y la dosimetría que ya están acá.
+
 ---
 
 ## 1. Lo que ya funciona y no hay que romper
@@ -243,15 +256,24 @@ Sobreviven a la medianoche y a que el paciente no abra la app, que era el agujer
 sobreviven a un reinicio ni a que se agote la batería.** El equipo tiene que ser autónomo: esa es
 parte de la consigna, y es el motivo de que la flash sea la fuente de verdad.
 
-**Cuánto ocupa** (de `docs/decisiones/003`):
+**Cuánto ocupa** (corregido con el hardware real; ver `docs/decisiones/003`):
 
 | Qué | Tamaño | Por día | Por año |
 |---|---|---|---|
-| Registro por minuto | 12 B | 17,3 KB | 6,3 MB |
+| Registro por minuto | 18 B | 25,9 KB | 9,5 MB |
 | Resumen diario | 28 B | 28 B | 10 KB |
 
-Con una partición de 10 MB entran más de 1,5 años de uso continuo. El ESP32-S3-WROOM-1-N16 tiene
-16 MB de flash.
+El ESP32 clásico tiene **4 MB de flash**, de los que quedan **~1,5 MB para registro**: unos **59 días**
+de uso continuo, no 1,5 años. Es suficiente para un tratamiento, que es el horizonte real del equipo,
+pero conviene saberlo antes de prometer autonomía.
+
+Dos aclaraciones para no confundir formatos:
+
+- Los **18 B/min son el registro en flash**, que guarda más campos (hora, límite, pico, tiempo apoyado
+  y en exceso, dosis, excedencias y señales de estado). Los **12 B/min del protocolo BLE** (0004) son
+  otra cosa: lo que viaja al teléfono. No tienen por qué coincidir.
+- El prototipo escribe cada 10 minutos para cuidar la flash, así que ante un corte se pierden como
+  máximo 10 minutos. Al encender recupera los indicadores del día.
 
 **Cómo encararlo.** Hacé lo mismo que hicimos en la app: una interfaz abstracta con dos
 implementaciones, una en RAM para los tests y otra real para la placa.
@@ -283,7 +305,8 @@ recorren un `std::vector`, después recorren el almacén.
 
 **Disposición de archivos sugerida.** Append-only, que es lo que mejor se lleva con LittleFS:
 
-- `/dias/AAAAMMDD.bin` — registros de 12 B del día, uno atrás del otro.
+- `/dias/AAAAMMDD.bin` — registros por minuto del día, uno atrás del otro (18 B en el formato de flash
+  del prototipo; el de 12 B es el del protocolo BLE, no el de disco).
 - `/resumenes.bin` — resúmenes de 28 B, uno atrás del otro.
 
 Así, "recorrer desde una fecha" es abrir los archivos que correspondan, sin índices ni borrados en
@@ -295,12 +318,15 @@ Creá `firmware/particiones.csv`:
 ```
 # Name,     Type, SubType, Offset,   Size,     Flags
 nvs,        data, nvs,     0x9000,   0x5000,
-otadata,    data, ota,     0xe000,   0x2000,
-app0,       app,  ota_0,   0x10000,  0x400000,
-littlefs,   data, spiffs,  0x410000, 0xBF0000,
+factory,    app,  factory, 0x10000,  0x200000,
+littlefs,   data, spiffs,  0x210000, 0x1F0000,
 ```
 
-y en `platformio.ini`, en el entorno `esp32s3`:
+Es para los **4 MB del ESP32 clásico**: 2 MB de aplicación y ~1,9 MB de LittleFS. Sin OTA, que no se
+usa y liberarlo da espacio de registro. El prototipo hoy corre con el esquema por defecto del Arduino
+IDE, que deja ~1,5 MB.
+
+y en `platformio.ini`, en el entorno `esp32dev`:
 
 ```ini
 board_build.partitions = particiones.csv
@@ -328,45 +354,63 @@ static float leerCarga() {
 }
 ```
 
-La cadena real es: **8 × FSR 402 + NTC → ADG708 (multiplexor) → OPA2333 (transimpedancia) →
-ADS1115 (ADC de 16 bits, I²C) → ESP32-S3**.
+La cadena real es: **3 de 8 × FSR 402 con EVA → CD4051B (multiplexor) → MCP6002 (transimpedancia,
+Rf = 4,7 kΩ) → ADC interno del ESP32 clásico (GPIO34)**. Sin NTC: se descartó.
+
+**Buena noticia: casi todo esto ya está resuelto** en `alarma_con_display.ino`, el firmware del
+prototipo. Leé `docs/avances/` antes de escribir nada, porque el trabajo que falta no es construir
+esto de cero, sino traerlo acá y unirlo con la dosimetría y el BLE que ya están.
 
 Aplicá el mismo patrón que con el almacenamiento: una interfaz `FuenteCarga` con
 `FuentePotenciometro` (la de hoy, para seguir probando sin plantilla) y `FuenteFsr` (la nueva).
 Así se cambia una clase sin tocar ni la dosimetría ni el BLE.
 
-**Lo que hay que resolver, en orden:**
+**Lo que ya está resuelto en el prototipo, y hay que portar tal cual:**
 
-1. **Presupuesto de tiempo.** La dosimetría corre a 50 Hz. Con 8 canales multiplexados son 400
-   conversiones por segundo. El ADS1115 llega a 860 muestras por segundo, o sea 1,16 ms por
-   conversión: 8 canales son 9,3 ms, y quedan unos 10 ms de margen por ciclo. **Es ajustado.**
-   Tené en cuenta el tiempo de establecimiento después de conmutar el multiplexor. El NTC no hace
-   falta leerlo a 50 Hz: una vez por segundo alcanza y de paso libera tiempo.
-2. **De fuerza a %PC.** El dosímetro trabaja en porcentaje del peso corporal. El peso llega por
-   BLE en la característica de configuración y hoy se guarda en `pesoActivo_kg` **sin usarse**,
-   porque el potenciómetro simula %PC directamente. La fuente real tiene que hacer la cuenta:
-   sumar las fuerzas de los 8 canales en kg y dividir por `pesoActivo_kg`.
-3. **Calibración por canal.** Los FSR 402 varían mucho entre unidades. Hay que calibrar cada canal
-   contra pesas patrón y guardar los coeficientes (en NVS, no en LittleFS). Sin esto, el número no
-   significa nada.
-4. **Deriva del cero.** Es el foco de ingeniería del proyecto: el FSR deriva bajo carga sostenida
-   y tiene histéresis. Hace falta seguimiento de línea de base. Pensalo con tests primero, con
-   perfiles sintéticos, como ya se hizo con la dosimetría: es la única forma de verificarlo sin
-   estar parado arriba de la plantilla.
-5. **Compensación por temperatura** con el NTC, si llegan los tiempos.
+1. **Muestreo sin ruido de red.** En cada ventana de 20 ms se recorren todos los canales 10 veces,
+   cada 2 ms, y se promedia cada uno. Diez muestras repartidas sobre un ciclo completo de 50 Hz
+   cancelan la interferencia de red, y cada canal entrega sus 50 lecturas por segundo. **No pongas
+   un filtro RC después del multiplexor**: tiene que asentarse en cada cambio de canal y mezclaría
+   los canales. Ya se intentó y fue un error.
+2. **De mV a gramos.** Tabla de 9 puntos con interpolación lineal, de la calibración del 28/10. Se
+   resta el cero de cada canal **en mV y después** se convierte, porque la curva no es lineal y
+   hacerlo al revés da otro resultado. Fuera de la tabla: ΔV ≤ 0 da 0 g, y ΔV ≥ 2658 mV queda fijo
+   en 2800 g (sensor saturado). La carga total es la suma de los canales.
+3. **Deriva del cero.** El seguidor de línea de base está implementado y validado con perfiles
+   sintéticos. Guarda el mínimo de cada canal por minuto, conserva los últimos 15, y si los 3 más
+   bajos concuerdan actualiza el offset como 0,2·candidato + 0,8·offset. Tiene dos limitaciones
+   medidas, que hay que declarar en el informe: tarda 15 minutos en corregir un cero que sube, y si
+   el pie queda apoyado y quieto más de 15 minutos puede tomar esa carga como cero.
 
-Los puntos 3, 4 y 5 son el corazón del trabajo de Instrumentación. Los puntos 1 y 2 son plomería.
+**Lo que sigue pendiente:**
+
+4. **De gramos a %PC.** Es el agujero que queda. El dosímetro trabaja en porcentaje del peso
+   corporal, el equipo hoy entrega gramos, y el puente es la **calibración global contra balanza,
+   que no se hizo**. El peso llega por BLE en la característica de configuración y se guarda en
+   `pesoActivo_kg` sin usarse. No alcanza con dividir por el peso: 3 sensores cubren una fracción
+   de la planta, así que su suma no es la carga total. Hace falta el factor k por mínimos cuadrados
+   con el sujeto parado sobre una balanza.
+5. **Calibración por canal.** Hoy se usa una sola tabla para los tres FSR, porque la variación entre
+   unidades que declara el fabricante (±6 %) es menor que la histéresis del propio sensor (~10 %).
+   Si se mide y resulta mayor, habrá que una tabla por canal, guardada en NVS.
+6. **Compensación por temperatura.** Descartada por ahora: el efecto estimado es ~2 % para ~10 °C,
+   menor que la histéresis. Hay un ensayo de 15 minutos propuesto en el informe del 28/10 para
+   medirlo en vez de estimarlo. Si diera más del 5 %, se revisa.
+
+El punto 4 es el que le falta al proyecto para que el número tenga significado clínico.
 
 ### 7.3 Lo demás del hardware
 
-| Qué | Hoy | Falta |
+Casi todo esto también está hecho en `alarma_con_display.ino`: lo que falta es portarlo.
+
+| Qué | En este repo | En el prototipo que anda |
 |---|---|---|
-| Reloj | `settimeofday` desde BLE, se pierde al reiniciar | leer el **DS3231** al arrancar |
-| Batería | `leerBateria()` devuelve 100 fijo | divisor resistivo + curva de LiPo |
-| OLED | no existe | pantalla local, sin mostrar %PC al paciente |
-| LED RGB y buzzer | funcionan | ajustar pines de la placa final |
-| Pulsadores | uno solo (`PIN_BOTON`) | la placa final tiene dos |
-| `src/placa.h` | pines del devkit | mapa de pines de la placa real |
+| Reloj | `settimeofday` desde BLE, se pierde al reiniciar | **DS3231** por I²C, leído una vez por minuto, con cierre del día a medianoche |
+| Batería | `leerBateria()` devuelve 100 fijo | sin resolver: el prototipo anda por USB |
+| OLED | no existe | SSD1306 por I²C (0x3C), 4 pantallas, **en una tarea del otro núcleo** porque dibujar tarda ~25 ms y rompería la ventana de 20 ms |
+| LED RGB y buzzer | funcionan | buzzer activo TMB12A05 directo a GPIO19; falta ver si necesita transistor |
+| Pulsadores | uno solo (`PIN_BOTON`) | dos: GPIO32 cambia de pantalla, GPIO33 mantenido 3 s hace la tara |
+| `src/placa.h` | pines del devkit | pines reales del ESP32 clásico, ya actualizados |
 
 El reloj merece una nota. Hoy, si el equipo se reinicia, `horaSincronizada` vuelve a falso, y
 **un día sin hora sincronizada no se guarda**, porque no se sabría a qué fecha corresponde. Con el

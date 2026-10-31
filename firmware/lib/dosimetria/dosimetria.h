@@ -7,6 +7,10 @@ namespace dosi {
 
 enum class Regimen : uint8_t { SinApoyo = 0, Subcarga = 1, Ventana = 2, Exceso = 3 };
 
+// Las unidades son %PC, como define el Anexo A. El prototipo real todavía trabaja en gramos
+// (ver docs/avances/): usa 1000 g como límite provisorio y 150 g como umbral de apoyo, que es
+// donde el FSR empieza a responder. La equivalencia entre esos números y estos depende de la
+// calibración global contra balanza, que está pendiente. No cambiar los defaults por eso.
 struct Limites {
   float L = 20.0f;        // límite superior [%PC]
   float Lmin = 0.0f;      // límite inferior [%PC]; 0 si el protocolo no lo prescribe

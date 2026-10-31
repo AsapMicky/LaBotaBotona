@@ -23,7 +23,7 @@ tiempo en exceso, la cantidad de excedencias y el índice de cumplimiento.
 
 ```mermaid
 flowchart TD
-    FSR["8 x FSR 402<br/>con capa de EVA"] --> MUX["CD4051B<br/>multiplexor analógico"]
+    FSR["FSR 402 con capa de EVA<br/>3 de 8 en el prototipo"] --> MUX["CD4051B<br/>multiplexor analógico"]
     MUX --> AMP["MCP6002<br/>transimpedancia, Rf = 4,7 k"]
     AMP --> ADC["ADC interno del ESP32<br/>50 lecturas/s por canal"]
     ADC --> FW["Firmware<br/>calibración y cálculo de dosis"]
@@ -61,14 +61,20 @@ Componentes del prototipo en protoboard.
 ## Estructura del repo
 
 ```
-firmware/      ESP32 (PlatformIO). lib/dosimetria y lib/protocolo son C++ puro y corren en la PC
+firmware/      ESP32 (PlatformIO). Esqueleto: la dosimetría y el protocolo son finales, la carga se simula
 hardware/      KiCad. Vacía por ahora, la placa está en desarrollo
 app-paciente/  App del paciente en Flutter. Semáforo, excedencias del día y batería
 web-medico/    Web del médico en React y Vite. Lista de pacientes, reporte y tendencias
 backend/       Supabase: migraciones SQL, permisos por médico y la función de subida
 docs/          Protocolo BLE (el contrato), modelo de datos y decisiones de diseño justificadas
+docs/avances/  Informes del hardware real: qué se armó, qué se decidió y la calibración
 scripts/       Utilidades de desarrollo: servidor falso de subida, alta de issues, ping a Supabase
 ```
+
+El firmware que hace andar el prototipo es `alarma_con_display.ino`, escrito en el Arduino IDE, y
+todavía no está en este repo. Lee los 3 FSR, da la alarma, calcula los indicadores, corrige la deriva
+del cero, maneja el reloj, el registro en flash y la pantalla, pero no habla BLE. Lo que hay en
+`firmware/` es el esqueleto que sí tiene el protocolo y la dosimetría, con la carga simulada.
 
 El protocolo BLE está en `docs/protocolo-ble.md` y es la fuente de verdad entre el firmware y las dos
 interfaces. Los paquetes de ejemplo de `docs/protocolo-vectores.json` los leen los tests de C++, de Dart
@@ -134,10 +140,11 @@ Octubre de 2026.
 - [x] Protocolo BLE definido y verificado en los tres lados contra los mismos vectores
 - [x] Web del médico contra Supabase: alta de pacientes, QR de vinculación, reporte y tendencias
 - [x] App del paciente: vinculación por QR, cola local de subida y reintentos
+- [ ] Unir el firmware del prototipo con el protocolo BLE de este repo
 - [ ] Placa en KiCad
-- [ ] Sumar los 8 sensores
-- [ ] Calibración global a porcentaje del peso corporal
-- [ ] Ensayos de validación
+- [ ] Sumar los 5 sensores que faltan, hasta los 8
+- [ ] Calibración global contra balanza, para pasar de gramos a porcentaje del peso corporal
+- [ ] Ensayos de validación: exactitud fuera de la tabla, repetibilidad, histéresis y temperatura
 
 ## Equipo
 

@@ -22,7 +22,12 @@
 - [ ] Demo: girar el pote → semáforo ámbar → excedencia → aparece en la web
 
 ## Avance 4 — Hardware real
-- [ ] Reemplazar `FuentePotenciometro` por lectura FSR + ADS1115 + ADG708
-- [ ] Calibración por canal contra pesas patrón
-- [ ] Seguimiento de línea de base (deriva del cero)
-- [ ] Historial en LittleFS
+Esto en buena parte **ya está hecho**, pero en `alarma_con_display.ino`, fuera del repo
+(ver `docs/avances/`). Lo que falta es unirlo con el protocolo BLE y la dosimetría de acá.
+- [x] Lectura de 3 FSR por CD4051B + MCP6002 + ADC interno del ESP32 clásico
+- [x] Calibración contra pesas patrón: tabla de mV a gramos (28/10)
+- [x] Seguimiento de línea de base (deriva del cero), validado con perfiles sintéticos
+- [x] Historial en LittleFS, 18 B/min, con descarga en CSV
+- [ ] Reemplazar `FuentePotenciometro` por la lectura real, acá en `firmware/`
+- [ ] Calibración global contra balanza: el factor de gramos a %PC
+- [ ] Sumar los 5 FSR que faltan

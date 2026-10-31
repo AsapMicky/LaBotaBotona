@@ -3,6 +3,16 @@
 Contrato entre el firmware y las apps. Todos los enteros son **little-endian**. Los valores de carga se
 transmiten en décimas de %PC (`x10`) para evitar flotantes.
 
+> **Nota de unidades (31/10/2026).** El prototipo real mide en **gramos**, no en %PC: convierte cada
+> canal con una tabla de mV a gramos (calibración del 28/10, ver `docs/avances/`). El pasaje a %PC
+> necesita la **calibración global contra balanza, que todavía no se hizo**, porque 3 sensores cubren
+> una fracción de la planta y su suma no es la carga total sobre el pie.
+>
+> **Este contrato no cambia por eso.** El %PC es el destino definido en el Anexo A del anteproyecto, y
+> lo que falta es el factor de conversión, no el modelo. Cuando el firmware real implemente BLE, tiene
+> que entregar %PC: la conversión es responsabilidad suya, igual que el resto de las métricas
+> (`CLAUDE.md`: las métricas se calculan en el microcontrolador).
+
 **Servicio:** `6f1a0000-8b3c-4d5e-9a10-2c7e5b3d9f00`
 **Nombre anunciado:** `DOSI-<serie>` (ej. `DOSI-0003`)
 **MTU:** la app pide 247.
@@ -106,8 +116,13 @@ quedarse sin batería, vuelve a los valores de fábrica y queda midiendo contra 
 prescribió. Va en NVS, no en RAM.
 
 ## Pendiente para versiones siguientes
+- **Que el firmware real implemente BLE.** `alarma_con_display.ino` mide, calcula, guarda y muestra,
+  pero no habla BLE: es lo que falta para cerrar el circuito con la app y la web.
+- **El factor de gramos a %PC** (calibración global contra balanza). Sin eso el equipo no puede
+  completar los campos de este protocolo con valores correctos.
 - Emparejamiento con passkey (hoy cualquiera en rango puede leer; aceptable en banco, no en uso real).
-- Guardar historial en LittleFS (hoy está en RAM en el prototipo).
+- Guardar historial en LittleFS (en el esqueleto de este repo está en RAM; el prototipo real ya
+  escribe en LittleFS, con otro formato de registro: 18 B/min, ver `docs/decisiones/003`).
 - **Persistencia real.** Hoy tanto los registros por minuto como los resúmenes de días cerrados
   viven en RAM: sobreviven a la medianoche y a que el paciente no abra la app, pero no a un
   reinicio ni a que se agote la batería. Pasarlos a LittleFS es la tarea del Avance 4.

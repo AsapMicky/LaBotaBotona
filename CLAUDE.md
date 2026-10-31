@@ -8,15 +8,38 @@ revisa entre consultas. El foco de ingeniería es que el indicador sea **confiab
 (histéresis, deriva del cero bajo carga sostenida, variabilidad entre unidades).
 
 ## Estado actual (actualizar cuando cambie)
-- No hay electrónica armada. La carga se simula con un potenciómetro en un ESP32 devkit.
-- Hardware previsto: 8×FSR 402 + NTC → ADG708 → OPA2333 (transimpedancia) → ADS1115 → ESP32-S3-WROOM-1-N16,
-  RTC DS3231, OLED, LED RGB, buzzer, 2 pulsadores, LiPo 2000 mAh + TP4056 + AP2112K-3.3.
+
+**Hay prototipo armado y calibrado.** Leer `docs/avances/` antes de tocar nada de hardware o firmware:
+son los informes del equipo que lo armó y le ganan a cualquier otra cosa del repo.
+
+- **La cadena del protoboard es la definitiva** (quedó fijada el 28/10/2026, porque la calibración está
+  atada a esa electrónica exacta): 3 de 8 × FSR 402 con capa de EVA → **CD4051B** → **MCP6002**
+  (transimpedancia, **Rf = 4,7 kΩ**) → **ADC interno del ESP32 clásico** (ESP-WROOM-32, GPIO34),
+  DS3231, OLED SSD1306 con 2 botones, LED RGB, buzzer TMB12A05. Alimentación por USB; la LiPo con
+  TP4056 y AP2112K-3.3 está prevista pero no armada.
+- **No** son ADG708, OPA2333, ADS1115 ni ESP32-S3: eran el diseño original y quedaron atrás. El NTC se
+  descartó, porque el seguidor de línea de base corrige el cero sea cual sea la causa.
+- Flash: **4 MB**, de los que quedan ~1,5 MB para registro. No 16 MB.
+- **El firmware que anda es `alarma_con_display.ino` (Arduino IDE) y todavía no está en este repo.**
+  Lo que hay en `firmware/` es el esqueleto simulado con potenciómetro: la lógica de dosis y el
+  protocolo BLE son los finales, la fuente de carga no.
+- `hardware/` está vacía: el KiCad lo están terminando.
+
+### Unidades: el equipo mide gramos, el contrato sigue en %PC
+El dispositivo convierte cada canal a **gramos** con una tabla de mV a gramos (calibración del 28/10).
+El protocolo BLE, la base de datos y la web siguen en **%PC**, que es el destino definido en el Anexo A.
+El puente entre los dos es la **calibración global contra balanza, que todavía no se hizo**: hasta que
+exista, los gramos del equipo son "gramos sobre los sensores", no la carga total sobre el pie.
+
+No cambiar las unidades del protocolo ni del esquema por esto. Lo que falta es el factor, no el modelo.
 
 ## Mapa del repo
 - `docs/protocolo-ble.md` — **el contrato** entre firmware y apps. Es la fuente de verdad.
 - `docs/protocolo-vectores.json` — paquetes de ejemplo en hexa; los leen los tests de C++, de Dart y de JS.
 - `docs/firmware-placa-real.md` — **briefing para escribir el firmware de la placa.** Leerlo antes de
   tocar `firmware/` para el hardware real: explica las decisiones tomadas y lo que falta.
+- `docs/avances/` — **informes del hardware real.** La fuente de verdad sobre el prototipo: qué se armó,
+  qué se decidió y la calibración. Leerlos antes de tocar `firmware/` o `hardware/`.
 - `docs/modelo-datos.md`, `docs/decisiones/` — modelo y justificaciones (van al informe).
 - `firmware/lib/dosimetria` — cálculo de dosis. C++ puro, sin Arduino, testeable en PC.
 - `firmware/lib/protocolo` — serialización de los paquetes BLE.
