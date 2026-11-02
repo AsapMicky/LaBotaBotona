@@ -15,15 +15,40 @@ son los informes del equipo que lo armó y le ganan a cualquier otra cosa del re
 - **La cadena del protoboard es la definitiva** (quedó fijada el 28/10/2026, porque la calibración está
   atada a esa electrónica exacta): 3 de 8 × FSR 402 con capa de EVA → **CD4051B** → **MCP6002**
   (transimpedancia, **Rf = 4,7 kΩ**) → **ADC interno del ESP32 clásico** (ESP-WROOM-32, GPIO34),
-  DS3231, OLED SSD1306 con 2 botones, LED RGB, buzzer TMB12A05. Alimentación por USB; la LiPo con
-  TP4056 y AP2112K-3.3 está prevista pero no armada.
+  DS3231, OLED SSD1306 con 2 botones, LED RGB (GPIO16/17/18), buzzer TMB12A05 (GPIO19).
 - **No** son ADG708, OPA2333, ADS1115 ni ESP32-S3: eran el diseño original y quedaron atrás. El NTC se
   descartó, porque el seguidor de línea de base corrige el cero sea cual sea la causa.
 - Flash: **4 MB**, de los que quedan ~1,5 MB para registro. No 16 MB.
-- **El firmware que anda es `alarma_con_display.ino` (Arduino IDE) y todavía no está en este repo.**
+- **El firmware que anda es `dosimetro_calibrado.ino` (Arduino IDE, 28/10) y todavía no está en este
+  repo; cuando llegue va en `firmware/prototipo/`, tal cual, como referencia.**
   Lo que hay en `firmware/` es el esqueleto simulado con potenciómetro: la lógica de dosis y el
   protocolo BLE son los finales, la fuente de carga no.
 - `hardware/` está vacía: el KiCad lo están terminando.
+
+### Alimentación: sin regulador, con corrección ratiométrica
+**No hay AP2112K ni ningún regulador.** La cátedra proveyó una LiPo 1S de 1000 mAh y los reguladores
+disponibles no sirven con una celda de 3,2 a 4,2 V: un lineal necesita que la entrada supere su salida
+por la tensión de caída, y ninguno lo cumple en ese rango. Así que el circuito se alimenta **directo de
+la celda**, a través de un módulo TP4056 con protección, y el riel es la tensión de la batería.
+
+La consecuencia es que **la medición pasa a depender de la batería**: la referencia de la transimpedancia
+sale del riel con un divisor, pero el ADC convierte contra una referencia interna fija. Sin corregir,
+una misma carga se lee hasta 27 % más alta con la celda recién cargada, y el equipo acusaría de
+sobrecarga a un paciente que se cuidó.
+
+Se corrige por software, sin agregar componentes: `V_corr = V_med · V_CAL / V_riel`, midiendo el riel
+con el mismo ADC (GPIO35, divisor R17/R18) una vez por segundo. Como las dos lecturas pasan por el mismo
+conversor, el error de ganancia de su referencia se cancela en el cociente. Las constantes están en
+`placa.h`; `V_CAL_MV` se obtiene con el comando `v` del monitor serie, por USB y sin batería.
+
+Dos cosas que se siguen de esto y conviene no romper:
+- **La saturación se evalúa sobre el valor crudo** (`SAT_MV`), nunca sobre el corregido: el techo del
+  ADC no se mueve con el riel.
+- **Los umbrales de batería son relativos a `V_CAL_MV`**, para que alimentar por USB no dispare el aviso.
+
+Limitación conocida: con la celda por encima de 3,6 V el ESP32 queda fuera de la tensión que especifica
+Espressif. Funciona, pero sin garantía del fabricante. Un LDO de caída muy baja (MCP1700-3.3, HT7333)
+lo resolvería manteniendo la corrección.
 
 ### Unidades: el equipo mide gramos, el contrato sigue en %PC
 El dispositivo convierte cada canal a **gramos** con una tabla de mV a gramos (calibración del 28/10).
@@ -52,7 +77,8 @@ No cambiar las unidades del protocolo ni del esquema por esto. Lo que falta es e
 
 ## Comandos
 - Firmware tests: `cd firmware && pio test -e native`
-- Firmware build: `cd firmware && pio run -e esp32s3` (o `-e esp32dev` para NodeMCU)
+- Firmware build: `cd firmware && pio run -e esp32dev` (el ESP32 clásico del prototipo; `-e esp32s3`
+  solo si la placa final cambia)
 - App: `cd app-paciente && flutter test` / `flutter run`
 - Web: `cd web-medico && npm run dev` / `npm run build`
 

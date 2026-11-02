@@ -2,6 +2,8 @@
 // Todo lo demás (dosis, semáforo, protocolo BLE) es el código definitivo.
 #include <Arduino.h>
 #include <NimBLEDevice.h>
+#include <Preferences.h>
+#include <esp_sleep.h>
 #include <sys/time.h>
 #include <vector>
 #include "placa.h"
@@ -33,6 +35,59 @@ static bool horaSincronizada = false;
 static int16_t offsetLocal_min = -180;
 static char episodio[16] = {0};
 
+// ---------------- Calibración global ----------------
+//
+// El equipo mide gramos sobre los sensores. El contrato con la app y la web es %PC, y el
+// puente es este factor: cuánta carga corporal representa cada gramo medido. Hace falta
+// porque los FSR cubren una fracción de la planta, así que su suma no es la carga del pie.
+//
+// Se obtiene con el sujeto parado sobre una balanza (calibración global, pendiente). Hasta
+// entonces vale K_PROVISORIO y el equipo lo declara por el flag SIN_CALIBRACION, para que la
+// web no muestre como clínico un número que no lo es.
+//
+// K_PROVISORIO solo compensa que hay 3 de 8 sensores: 8/3. NO corrige la fracción de planta
+// que los FSR no tocan, así que subestima. Es un valor para la demo, no para un informe.
+static const float K_PROVISORIO = 8.0f / 3.0f;
+static float kGlobal = K_PROVISORIO;
+static bool calibracionGlobal = false;
+
+/// Convierte lo que miden los sensores a porcentaje del peso corporal.
+static float gramosAPorcentajePC(float gramos) {
+  if (pesoActivo_kg <= 0.0f) return 0.0f;   // sin peso cargado no hay %PC posible
+  return kGlobal * gramos / (pesoActivo_kg * 10.0f);
+}
+
+// ---------------- Persistencia ----------------
+//
+// El episodio y los límites TIENEN que sobrevivir a un reinicio. Si se pierden, el equipo
+// vuelve a los valores de fábrica y queda midiendo contra un límite que nadie prescribió
+// (ver docs/protocolo-ble.md, 0007).
+static Preferences nvs;
+
+static void guardarNvs() {
+  nvs.putBytes("episodio", episodio, sizeof episodio);
+  const Limites& l = dosimetro.limites();
+  nvs.putFloat("L", l.L);
+  nvs.putFloat("Lmin", l.Lmin);
+  nvs.putFloat("peso", pesoActivo_kg);
+  nvs.putShort("offset", offsetLocal_min);
+  nvs.putFloat("k", kGlobal);
+  nvs.putBool("calib", calibracionGlobal);
+}
+
+static void cargarNvs() {
+  if (nvs.isKey("episodio")) nvs.getBytes("episodio", episodio, sizeof episodio);
+  Limites l = dosimetro.limites();
+  l.L = nvs.getFloat("L", l.L);
+  l.Lmin = nvs.getFloat("Lmin", l.Lmin);
+  dosimetro.setLimites(l);
+  pesoActivo_kg = pesoPendiente_kg = nvs.getFloat("peso", pesoActivo_kg);
+  offsetLocal_min = nvs.getShort("offset", offsetLocal_min);
+  kGlobal = nvs.getFloat("k", K_PROVISORIO);
+  calibracionGlobal = nvs.getBool("calib", false);
+  limitePendiente = l;
+}
+
 static NimBLECharacteristic* chEstado, *chResumen, *chHistDatos, *chConfig, *chInfo, *chResumenes;
 static bool clienteConectado = false;
 
@@ -53,12 +108,66 @@ static bool sinEpisodio() {
   for (char c : episodio) if (c != 0) return false;
   return true;
 }
-static uint8_t leerBateria() { return 100; }  // TODO: divisor al ADS1115
+// ---------------- Riel y batería ----------------
+//
+// No hay regulador: el riel es la celda. Medirlo con el mismo ADC que mide la señal permite
+// dos cosas: corregir la lectura (ver `corregir()`) y saber cuánta batería queda.
+static uint16_t rielMv = V_CAL_MV;
+
+/// Promedia 16 lecturas del divisor R17/R18. Se llama una vez por segundo: tarda ~1 ms y no
+/// toca la ventana de 20 ms del muestreo.
+static void medirRiel() {
+  uint32_t suma = 0;
+  for (int i = 0; i < 16; i++) suma += analogReadMilliVolts(PIN_RIEL);
+  const uint32_t mv = (suma / 16) * 2;   // el divisor es 1:2
+  // Fuera de rango significa pin desconectado o medición sin sentido: se descarta en vez de
+  // corregir con un número inventado.
+  if (mv >= 2500 && mv <= 4500) rielMv = static_cast<uint16_t>(mv);
+}
+
+/// Lleva una lectura a la tensión de riel que había durante la calibración.
+///
+/// Sin esto, una misma carga se leería hasta 27 % más alta con la batería recién cargada, y el
+/// equipo acusaría de sobrecarga a un paciente que se cuidó. Es exactamente el error que el
+/// proyecto existe para evitar.
+static float corregir(float mv) {
+  return rielMv > 0 ? mv * static_cast<float>(V_CAL_MV) / rielMv : mv;
+}
+
+static uint8_t leerBateria() {
+  // Aproximación lineal entre el corte y la celda llena. La curva real de una LiPo no es
+  // lineal; alcanza para el indicador del paciente, que solo necesita saber si tiene que
+  // cargar. Con el equipo por USB el riel queda en V_CAL y esto da un valor bajo: es correcto,
+  // porque en esa condición no hay batería de la cual informar.
+  if (rielMv >= BAT_LLENA_MV) return 100;
+  if (rielMv <= BAT_CORTE_MV) return 0;
+  return static_cast<uint8_t>(100UL * (rielMv - BAT_CORTE_MV) / (BAT_LLENA_MV - BAT_CORTE_MV));
+}
+
+/// Carga en %PC. Hoy la simula un potenciómetro.
+///
+/// En la placa real esto pasa a ser: barrido de los canales por el CD4051B (10 pasadas en
+/// 20 ms, que cancelan los 50 Hz de red), conversión de mV a gramos con la tabla de la
+/// calibración del 28/10, resta del cero por canal ANTES de convertir, suma de los canales
+/// y finalmente `gramosAPorcentajePC()`. El firmware del prototipo ya hace todo salvo el
+/// último paso; ver docs/avances/ y docs/firmware-placa-real.md §7.2.
+static bool saturado = false;
 
 static float leerCarga() {
-  // TODO(avance 4): reemplazar por barrido ADG708 + ADS1115 + calibración + línea de base
-  int crudo = analogRead(PIN_POT);
-  return crudo / 4095.0f * CARGA_MAX_SIM;
+  const float crudoMv = analogReadMilliVolts(PIN_POT);
+  // La saturación se decide sobre el valor CRUDO, antes de corregir: el techo del ADC está
+  // donde está sin importar en qué anda el riel. Si se evaluara sobre el corregido, con la
+  // batería llena el umbral se correría y el equipo leería un valor recortado como si fuera real.
+  saturado = crudoMv >= SAT_MV;
+  return corregir(crudoMv) / 3300.0f * CARGA_MAX_SIM;
+}
+
+/// El TMB12A05 es un buzzer **activo**: suena solo con que le llegue tensión, y genera su
+/// propio tono. `tone()` le pone una frecuencia que no usa para nada.
+static void pitar(uint16_t ms) {
+  digitalWrite(PIN_BUZZER, HIGH);
+  delay(ms);
+  digitalWrite(PIN_BUZZER, LOW);
 }
 
 static void mostrarSemaforo(Regimen r) {
@@ -72,7 +181,12 @@ static void mostrarSemaforo(Regimen r) {
 #if defined(PIN_NEOPIXEL)
   neopixelWrite(PIN_NEOPIXEL, R, G, B);
 #else
-  digitalWrite(PIN_LED, r == Regimen::Exceso ? HIGH : LOW);
+  // LED RGB de cátodo común, encendido/apagado por color. El ámbar del exceso sale como
+  // rojo + verde, que es lo más cerca que se llega sin PWM. Si el grupo confirma el ámbar
+  // (hoy el prototipo usa rojo), esto pasa a ledcWrite para graduar los tres canales.
+  digitalWrite(PIN_LED_R, R > 0 ? HIGH : LOW);
+  digitalWrite(PIN_LED_G, G > 0 ? HIGH : LOW);
+  digitalWrite(PIN_LED_B, B > 0 ? HIGH : LOW);
 #endif
 }
 
@@ -82,6 +196,7 @@ static void publicarEstado() {
   if (hayPendiente) flags |= proto::LIMITE_PENDIENTE;
   if (!horaSincronizada) flags |= proto::SIN_HORA;
   if (sinEpisodio()) flags |= proto::SIN_EPISODIO;
+  if (!calibracionGlobal) flags |= proto::SIN_CALIBRACION;
   uint8_t b[proto::TAM_ESTADO];
   proto::codificarEstado(b, dosimetro.regimen(), dosimetro.acumulado(), leerBateria(), flags);
   chEstado->setValue(b, sizeof b);
@@ -203,6 +318,7 @@ class EscrituraCB : public NimBLECharacteristicCallbacks {
       settimeofday(&tv, nullptr);
       offsetLocal_min = static_cast<int16_t>(proto::get16(d + 4));
       horaSincronizada = true;
+      guardarNvs();     // el offset local define a qué día pertenece cada resumen
       agregador.iniciar(minutoActual(), dosimetro.acumulado());
     } else if (uuid == proto::UUID_INFO && n == 16) {
       memcpy(episodio, d, 16);
@@ -210,7 +326,12 @@ class EscrituraCB : public NimBLECharacteristicCallbacks {
         historial.clear();
         resumenes.clear();
         dosimetro.reiniciar();
+        // La calibración global es de la persona, no del equipo: al cerrar el episodio
+        // deja de valer y el siguiente paciente arranca otra vez sin calibrar.
+        kGlobal = K_PROVISORIO;
+        calibracionGlobal = false;
       }
+      guardarNvs();
       publicarInfo();
     }
   }
@@ -242,21 +363,48 @@ static void iniciarBLE() {
   adv->start();
 }
 
+/// Apaga el equipo cuando la celda ya no da, sin perder el minuto en curso.
+///
+/// El corte tiene que sostenerse BAT_CORTE_MS: el buzzer y la radio hacen caer el riel por
+/// instantes, y apagarse por uno de esos picos sería peor que seguir midiendo.
+static void vigilarBateria(uint32_t ahora) {
+  static uint32_t bajoDesde = 0;
+  if (rielMv > BAT_CORTE_MV) { bajoDesde = 0; return; }
+  if (bajoDesde == 0) { bajoDesde = ahora; return; }
+  if (ahora - bajoDesde < BAT_CORTE_MS) return;
+
+  // Lo último que se hace es guardar: un minuto a medias vale más que nada.
+  historial.push_back(agregador.cerrar(minutoActual()));   // TODO(avance 4): a LittleFS
+  guardarNvs();
+  for (int i = 0; i < 3; i++) { pitar(120); delay(120); }
+  Serial.println("Bateria agotada: apagando");
+  Serial.flush();
+  esp_deep_sleep_start();
+}
+
 // ---------------- Setup / loop ----------------
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_BOTON, INPUT_PULLUP);
   pinMode(PIN_BUZZER, OUTPUT);
 #if !defined(PIN_NEOPIXEL)
-  pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_LED_R, OUTPUT);
+  pinMode(PIN_LED_G, OUTPUT);
+  pinMode(PIN_LED_B, OUTPUT);
 #endif
   analogReadResolution(12);
+  medirRiel();   // antes de la primera lectura, para no corregir con un riel supuesto
 
   Limites lim;
   lim.L = 20.0f;
   lim.Lmin = 10.0f;
   dosimetro.setLimites(lim);
   limitePendiente = lim;
+
+  // Lo guardado pisa a los valores de fábrica de arriba. Si el equipo se reinició en medio
+  // de un tratamiento, tiene que seguir midiendo contra el límite de ese paciente.
+  nvs.begin("dosimetro", false);
+  cargarNvs();
 
   iniciarBLE();
   publicarConfig();
@@ -266,7 +414,10 @@ void setup() {
 }
 
 void loop() {
-  static uint32_t tMuestra = 0, tEstado = 0, tBoton = 0;
+  // tMuestra arranca en millis(), no en 0: si no, la primera muestra integra todo el tiempo
+  // transcurrido desde el arranque y mete una dosis falsa de varios segundos.
+  static uint32_t tMuestra = millis(), tEstado = 0, tBoton = 0;
+  static float ultimaCarga = 0;
   static uint32_t minutoEnCurso = minutoActual();
   static uint32_t diaEnCurso = inicioDiaLocal();
   static bool excPrevio = false;
@@ -276,11 +427,12 @@ void loop() {
     const float dt = (ahora - tMuestra) / 1000.0f;
     tMuestra = ahora;
     const float c = leerCarga();
+    ultimaCarga = c;
     dosimetro.actualizar(c, dt);
     agregador.agregar(c, dt, dosimetro.acumulado(), dosimetro.limites().Capoyo);
 
     // Aviso sonoro corto al iniciar una excedencia
-    if (dosimetro.enExcedencia() && !excPrevio) tone(PIN_BUZZER, 2000, 150);
+    if (dosimetro.enExcedencia() && !excPrevio) pitar(150);
     excPrevio = dosimetro.enExcedencia();
     mostrarSemaforo(dosimetro.regimen());
   }
@@ -299,8 +451,12 @@ void loop() {
 
   if (ahora - tEstado >= 1000) {
     tEstado = ahora;
+    medirRiel();
+    vigilarBateria(ahora);
     publicarEstado();
-    Serial.printf("C=%.1f%%PC reg=%d D=%.2f exc=%u\n", leerCarga(),
+    // Se imprime la última carga medida, no una lectura nueva: con el barrido real cada
+    // llamada a leerCarga() bloquea 20 ms, y acá no hace falta medir de nuevo.
+    Serial.printf("C=%.1f%%PC reg=%d D=%.2f exc=%u\n", ultimaCarga,
                   static_cast<int>(dosimetro.regimen()),
                   dosimetro.acumulado().dosisSobrecarga, dosimetro.acumulado().excedencias);
   }
@@ -312,11 +468,20 @@ void loop() {
       dosimetro.setLimites(limitePendiente);
       pesoActivo_kg = pesoPendiente_kg;
       hayPendiente = false;
+      guardarNvs();        // el límite confirmado tiene que sobrevivir a un reinicio
       publicarConfig();
-      tone(PIN_BUZZER, 3000, 80);
+      pitar(80);
     }
   } else {
     tBoton = 0;
+  }
+
+  // `v` imprime el riel medido. Es el procedimiento para obtener V_CAL_MV: se corre con el
+  // equipo por USB y la batería desconectada, y el valor se carga en placa.h antes de calibrar.
+  if (Serial.available() && Serial.read() == 'v') {
+    medirRiel();
+    Serial.printf("riel=%u mV  (V_CAL_MV actual: %d)  bateria=%u%%\n",
+                  rielMv, V_CAL_MV, leerBateria());
   }
 
   if (histPedido && clienteConectado) {

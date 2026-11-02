@@ -15,7 +15,7 @@ Contexto general del proyecto: `CLAUDE.md` en la raíz. Este documento no lo ree
 > Las secciones corregidas están marcadas. Donde este documento y `docs/avances/` discrepen, mandan
 > los informes.
 >
-> Además existe un firmware que ya funciona, `alarma_con_display.ino` (Arduino IDE), fuera de este
+> Además existe un firmware que ya funciona, `dosimetro_calibrado.ino` (Arduino IDE, 28/10), fuera de este
 > repo: lee los 3 FSR, da la alarma, calcula los indicadores, corrige el cero, maneja reloj, registro
 > en LittleFS y pantalla. **No implementa BLE.** Lo que falta no es escribir todo de nuevo, sino unir
 > ese firmware con el protocolo y la dosimetría que ya están acá.
@@ -263,7 +263,7 @@ parte de la consigna, y es el motivo de que la flash sea la fuente de verdad.
 | Registro por minuto | 18 B | 25,9 KB | 9,5 MB |
 | Resumen diario | 28 B | 28 B | 10 KB |
 
-El ESP32 clásico tiene **4 MB de flash**, de los que quedan **~1,5 MB para registro**: unos **59 días**
+El ESP32 clásico tiene **4 MB de flash**, de los que quedan **~1,5 MB para registro**: unos **58 días**
 de uso continuo, no 1,5 años. Es suficiente para un tratamiento, que es el horizonte real del equipo,
 pero conviene saberlo antes de prometer autonomía.
 
@@ -326,6 +326,11 @@ Es para los **4 MB del ESP32 clásico**: 2 MB de aplicación y ~1,9 MB de Little
 usa y liberarlo da espacio de registro. El prototipo hoy corre con el esquema por defecto del Arduino
 IDE, que deja ~1,5 MB.
 
+> **Cambiar la tabla de particiones borra el LittleFS.** No es un problema en esta transición, porque
+> el registro que hay hoy está en mV y hay que borrarlo igual con `xBORRAR`. Pero conviene saberlo: si
+> alguien cambia la tabla más adelante con un tratamiento en curso, se pierde el historial del
+> paciente. Bajar los datos antes.
+
 y en `platformio.ini`, en el entorno `esp32dev`:
 
 ```ini
@@ -357,7 +362,7 @@ static float leerCarga() {
 La cadena real es: **3 de 8 × FSR 402 con EVA → CD4051B (multiplexor) → MCP6002 (transimpedancia,
 Rf = 4,7 kΩ) → ADC interno del ESP32 clásico (GPIO34)**. Sin NTC: se descartó.
 
-**Buena noticia: casi todo esto ya está resuelto** en `alarma_con_display.ino`, el firmware del
+**Buena noticia: casi todo esto ya está resuelto** en `dosimetro_calibrado.ino`, el firmware del
 prototipo. Leé `docs/avances/` antes de escribir nada, porque el trabajo que falta no es construir
 esto de cero, sino traerlo acá y unirlo con la dosimetría y el BLE que ya están.
 
@@ -369,9 +374,18 @@ Así se cambia una clase sin tocar ni la dosimetría ni el BLE.
 
 1. **Muestreo sin ruido de red.** En cada ventana de 20 ms se recorren todos los canales 10 veces,
    cada 2 ms, y se promedia cada uno. Diez muestras repartidas sobre un ciclo completo de 50 Hz
-   cancelan la interferencia de red, y cada canal entrega sus 50 lecturas por segundo. **No pongas
-   un filtro RC después del multiplexor**: tiene que asentarse en cada cambio de canal y mezclaría
-   los canales. Ya se intentó y fue un error.
+   cancelan la interferencia de red, y cada canal entrega sus 50 lecturas por segundo.
+
+   **Sobre el filtro RC hay que distinguir dos cosas**, porque se confunden y una funciona y la
+   otra no:
+
+   | | Qué es | Veredicto |
+   |---|---|---|
+   | RC **lento** después del MUX, para filtrar los 50 Hz | Constante de tiempo comparable al ciclo de red | **No va.** Tiene que asentarse en cada cambio de canal, así que mezcla canales. Se intentó y falló; los 50 Hz se cancelan por firmware |
+   | RC **rápido** en la entrada del ADC | 1 kΩ + 10 nF, τ ≈ 10 µs | **Sí va.** No filtra nada de la señal: es un reservorio de carga para el muestreo del ADC, y aísla al op-amp de su carga capacitiva |
+
+   Por eso **C13 pasa de 100 nF a 10 nF** en el esquemático: con 100 nF el RC se vuelve lento y cae
+   en el primer caso.
 2. **De mV a gramos.** Tabla de 9 puntos con interpolación lineal, de la calibración del 28/10. Se
    resta el cero de cada canal **en mV y después** se convierte, porque la curva no es lineal y
    hacerlo al revés da otro resultado. Fuera de la tabla: ΔV ≤ 0 da 0 g, y ΔV ≥ 2658 mV queda fijo
@@ -401,16 +415,16 @@ El punto 4 es el que le falta al proyecto para que el número tenga significado 
 
 ### 7.3 Lo demás del hardware
 
-Casi todo esto también está hecho en `alarma_con_display.ino`: lo que falta es portarlo.
+Casi todo esto también está hecho en `dosimetro_calibrado.ino`: lo que falta es portarlo.
 
 | Qué | En este repo | En el prototipo que anda |
 |---|---|---|
 | Reloj | `settimeofday` desde BLE, se pierde al reiniciar | **DS3231** por I²C, leído una vez por minuto, con cierre del día a medianoche |
-| Batería | `leerBateria()` devuelve 100 fijo | sin resolver: el prototipo anda por USB |
+| Alimentación y batería | riel medido por GPIO35, corrección ratiométrica, `leerBateria()` real, aviso y corte con *deep sleep* | LiPo 1S directa al riel por TP4056, **sin regulador**; misma corrección |
 | OLED | no existe | SSD1306 por I²C (0x3C), 4 pantallas, **en una tarea del otro núcleo** porque dibujar tarda ~25 ms y rompería la ventana de 20 ms |
 | LED RGB y buzzer | funcionan | buzzer activo TMB12A05 directo a GPIO19; falta ver si necesita transistor |
 | Pulsadores | uno solo (`PIN_BOTON`) | dos: GPIO32 cambia de pantalla, GPIO33 mantenido 3 s hace la tara |
-| `src/placa.h` | pines del devkit | pines reales del ESP32 clásico, ya actualizados |
+| `src/placa.h` | pines reales del ESP32 clásico y constantes de alimentación, ya actualizados | el mismo mapa de pines |
 
 El reloj merece una nota. Hoy, si el equipo se reinicia, `horaSincronizada` vuelve a falso, y
 **un día sin hora sincronizada no se guarda**, porque no se sabría a qué fecha corresponde. Con el
@@ -424,9 +438,9 @@ Es lo que más te va a servir al principio:
 
 ```bash
 cd firmware
-pio test -e native          # 18 tests: dosimetría + protocolo
-pio run -e esp32s3          # compila para la placa (no la necesita)
-pio run -e esp32dev         # compila para el NodeMCU del simulador
+pio test -e native          # 20 tests: dosimetría + protocolo
+pio run -e esp32dev         # compila para la placa del prototipo (no la necesita)
+pio run -e esp32s3          # solo si la placa final cambia a un S3
 ```
 
 Y del otro lado, para confirmar que no rompiste el contrato:

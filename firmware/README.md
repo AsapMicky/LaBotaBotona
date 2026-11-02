@@ -2,7 +2,7 @@
 
 **Acá hay dos firmwares distintos y conviene no confundirlos.**
 
-| | En este repo | `alarma_con_display.ino` |
+| | En este repo | `dosimetro_calibrado.ino` |
 |---|---|---|
 | Dónde | `firmware/`, PlatformIO | Arduino IDE, **fuera del repo** |
 | Fuente de carga | potenciómetro simulado | 3 FSR 402 reales, calibrados en gramos |

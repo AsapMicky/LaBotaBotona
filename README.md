@@ -56,7 +56,7 @@ Componentes del prototipo en protoboard.
 | Flash interna (LittleFS) | Guarda los agregados por minuto y los resúmenes diarios |
 | OLED SSD1306 y 2 botones | Interfaz local del equipo |
 | LED RGB y buzzer | Aviso inmediato al paciente cuando se pasa del límite |
-| LiPo 1S, TP4056, AP2112K-3.3 | Alimentación prevista: batería, carga y regulación |
+| LiPo 1S 1000 mAh + TP4056 con protección | Alimentación. **Sin regulador**: el riel es la celda, de 3,2 a 4,2 V. La medición se corrige por software contra la tensión del riel |
 
 ## Estructura del repo
 
@@ -71,7 +71,7 @@ docs/avances/  Informes del hardware real: qué se armó, qué se decidió y la 
 scripts/       Utilidades de desarrollo: servidor falso de subida, alta de issues, ping a Supabase
 ```
 
-El firmware que hace andar el prototipo es `alarma_con_display.ino`, escrito en el Arduino IDE, y
+El firmware que hace andar el prototipo es `dosimetro_calibrado.ino`, escrito en el Arduino IDE, y
 todavía no está en este repo. Lee los 3 FSR, da la alarma, calcula los indicadores, corrige la deriva
 del cero, maneja el reloj, el registro en flash y la pantalla, pero no habla BLE. Lo que hay en
 `firmware/` es el esqueleto que sí tiene el protocolo y la dosimetría, con la carga simulada.
@@ -97,8 +97,8 @@ cd firmware && pio test -e native
 cd firmware && pio run -e esp32dev -t upload && pio device monitor
 ```
 
-`esp32dev` es el ESP32 clásico del prototipo. El entorno `esp32s3` apunta al ESP32-S3 y es el que está
-por defecto.
+`esp32dev` es el ESP32 clásico del prototipo y el entorno por defecto. El entorno `esp32s3` quedó por
+si la placa final cambia, pero no es la que está armada.
 
 **Web del médico:**
 

@@ -27,9 +27,9 @@ en exceso, dosis, excedencias y señales de estado).
 | Flash total | 16 MB | 4 MB |
 | Disponible para registro | ~10 MB | ~1,5 MB (esquema por defecto) o ~1,9 MB (partición propia) |
 | Registro por minuto | 13 B | 18 B |
-| Autonomía | ~1,5 años | **~59 días** |
+| Autonomía | ~1,5 años | **~58 días** |
 
-Cincuenta y nueve días alcanzan para un tratamiento, que es el horizonte real del equipo: el paciente
+Cincuenta y ocho días alcanzan para un tratamiento, que es el horizonte real del equipo: el paciente
 lo usa unas semanas y el médico lo descarga en cada consulta. Pero ya no hay margen para olvidarse de
 descargar durante meses, así que conviene decirlo en el informe en vez de repetir el número viejo.
 
