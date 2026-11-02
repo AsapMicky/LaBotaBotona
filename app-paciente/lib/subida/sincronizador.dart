@@ -21,6 +21,8 @@ class Sincronizador extends ChangeNotifier {
   final Duration _cadaTanto;
 
   StreamSubscription<EstadoConexion>? _sub;
+  StreamSubscription<EstadoVivo>? _subEstado;
+  EstadoVivo? _estado;
   Timer? _reintento;
   Timer? _periodico;
   Future<void>? _colaLista;
@@ -67,11 +69,13 @@ class Sincronizador extends ChangeNotifier {
     final i = _info;
     if (i == null) return null;
     final c = _config;
+    final e = _estado;
     return {
       'serie': i.serie,
       'firmware': i.firmware,
       'episodio': i.episodio,
       if (c != null) ...c.aJson(),
+      if (e != null) 'sin_calibracion': e.sinCalibracion,
     };
   }
   String? get ultimoError => _ultimoError;
@@ -86,6 +90,10 @@ class Sincronizador extends ChangeNotifier {
     _sub = _dispositivo.conexion.listen((c) {
       if (c == EstadoConexion.conectado) descargarYSubir();
     });
+    // El estado en vivo no se sube, pero trae los flags del equipo. El que le importa al
+    // médico es `sinCalibracion`: dice si los %PC salen de la calibración global o de un
+    // factor provisorio. Sin eso, la web no puede distinguir un dato clínico de uno que no lo es.
+    _subEstado = _dispositivo.estado.listen((e) => _estado = e);
     _periodico = Timer.periodic(_cadaTanto, (_) => subirAhora());
     _vinculacion.addListener(_alCambiarVinculacion);
     _colaLista = _cola.cargar();
@@ -202,6 +210,7 @@ class Sincronizador extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    _subEstado?.cancel();
     _reintento?.cancel();
     _periodico?.cancel();
     _vinculacion.removeListener(_alCambiarVinculacion);

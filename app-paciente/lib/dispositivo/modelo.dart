@@ -15,6 +15,11 @@ class EstadoVivo {
   final bool sinHora;
   final bool sinEpisodio;
 
+  /// El equipo convierte gramos a %PC con un factor provisorio: todavía no se hizo la
+  /// calibración global contra balanza. Los valores no tienen valor clínico.
+  /// El paciente no ve nada de esto; le importa a la web del médico.
+  final bool sinCalibracion;
+
   /// null si todavía no apoyó hoy.
   final double? cumplimientoHoy;
 
@@ -26,6 +31,7 @@ class EstadoVivo {
     this.limitePendiente = false,
     this.sinHora = false,
     this.sinEpisodio = false,
+    this.sinCalibracion = false,
     this.cumplimientoHoy,
   });
 }

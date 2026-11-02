@@ -52,6 +52,7 @@ EstadoVivo decodificarEstado(List<int> b) {
     limitePendiente: flags & 0x02 != 0,
     sinHora: flags & 0x04 != 0,
     sinEpisodio: flags & 0x08 != 0,
+    sinCalibracion: flags & 0x10 != 0,
     cumplimientoHoy: cumpl == 0xFFFF ? null : cumpl / 10.0,
   );
 }

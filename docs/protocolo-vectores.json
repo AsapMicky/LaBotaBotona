@@ -21,6 +21,7 @@
         "limite_pendiente": true,
         "sin_hora": false,
         "sin_episodio": false,
+        "sin_calibracion": false,
         "cumplimiento_hoy": 87.0
       }
     },
@@ -43,6 +44,7 @@
         "limite_pendiente": false,
         "sin_hora": false,
         "sin_episodio": false,
+        "sin_calibracion": false,
         "cumplimiento_hoy": null
       }
     },
@@ -65,6 +67,7 @@
         "limite_pendiente": false,
         "sin_hora": true,
         "sin_episodio": true,
+        "sin_calibracion": false,
         "cumplimiento_hoy": 97.5
       }
     },
@@ -87,7 +90,31 @@
         "limite_pendiente": false,
         "sin_hora": false,
         "sin_episodio": false,
+        "sin_calibracion": false,
         "cumplimiento_hoy": 50.0
+      }
+    },
+    {
+      "nombre": "sin calibración global: los %PC salen de un factor provisorio",
+      "bytes": "01 02 03 00 58 10 E8 03",
+      "entrada": {
+        "regimen": 2,
+        "excedencias": 3,
+        "bateria": 88,
+        "flags": 16,
+        "t_carga_s": 1800,
+        "t_exceso_s": 0
+      },
+      "esperado": {
+        "regimen": 2,
+        "excedencias_hoy": 3,
+        "bateria": 88,
+        "cargando": false,
+        "limite_pendiente": false,
+        "sin_hora": false,
+        "sin_episodio": false,
+        "sin_calibracion": true,
+        "cumplimiento_hoy": 100.0
       }
     }
   ],

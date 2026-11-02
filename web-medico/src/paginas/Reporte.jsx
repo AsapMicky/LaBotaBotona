@@ -300,7 +300,22 @@ function EquipoCargado({ ep }) {
           : `hasta ${fmt.num(v.limite_sup)} %`} del peso corporal, con {fmt.num(v.peso_kg)} kg de peso.
       </p>
       <ul className="observaciones">
-        {limitesOk && pesoOk && episodioOk && <li>Coincide con la indicación de este tratamiento.</li>}
+        {/* Va primero y aparte: si el equipo no tiene la calibración global, ninguno de los
+            números de este reporte es clínico, por más que los límites coincidan. */}
+        {v.sin_calibracion && (
+          <li className="sin-calibracion">
+            <strong>La ortesis todavía no tiene la calibración global.</strong> Convierte lo que miden
+            los sensores a %PC con un factor provisorio, así que la dosis, el pico y el cumplimiento
+            sirven para ver tendencias, no como valores de carga. Para calibrar hace falta pesar al
+            paciente parado sobre una balanza con la bota puesta.
+          </li>
+        )}
+        {limitesOk && pesoOk && episodioOk && !v.sin_calibracion && (
+          <li>Coincide con la indicación de este tratamiento.</li>
+        )}
+        {limitesOk && pesoOk && episodioOk && v.sin_calibracion && (
+          <li>Los límites y el peso coinciden con la indicación.</li>
+        )}
         {!limitesOk && (
           <li>
             <strong>Los límites no coinciden</strong> con la indicación

@@ -42,6 +42,10 @@ enum Flags : uint8_t {
   LIMITE_PENDIENTE = 1 << 1,
   SIN_HORA = 1 << 2,
   SIN_EPISODIO = 1 << 3,
+  // El equipo está convirtiendo gramos a %PC con un factor provisorio, sin la calibración
+  // global contra balanza. Los %PC que informa no tienen valor clínico y la web tiene que
+  // decirlo. Ver docs/avances/ y docs/protocolo-ble.md.
+  SIN_CALIBRACION = 1 << 4,
 };
 
 inline void put16(uint8_t* b, uint16_t v) { b[0] = v & 0xFF; b[1] = v >> 8; }
@@ -79,10 +83,17 @@ inline void codificarResumen(uint8_t* b, uint32_t inicioDia, const dosi::Acumula
 }
 
 // Lo que el médico prescribe: los dos límites y el peso con el que se convierte a %PC.
+// El constructor es explícito a propósito. Con solo inicializadores por miembro, esta struct
+// deja de ser un agregado en C++11, y el core de Arduino para ESP32 compila en gnu++11 pase lo
+// que pase en platformio.ini: `Ajustes{a, b, c}` no compilaba para la placa, aunque los tests
+// en la PC (que sí usan gnu++17) pasaran. Así funciona con cualquiera de los dos.
 struct Ajustes {
   float L = 0;
   float Lmin = 0;
   float peso_kg = 0;
+
+  Ajustes() = default;
+  Ajustes(float l, float lmin, float peso) : L(l), Lmin(lmin), peso_kg(peso) {}
 };
 
 /// 0005 · Configuración (13 B): activo, pendiente y si hay algo pendiente de confirmar.

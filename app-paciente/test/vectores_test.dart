@@ -44,6 +44,7 @@ void main() {
         expect(e.limitePendiente, esp['limite_pendiente']);
         expect(e.sinHora, esp['sin_hora']);
         expect(e.sinEpisodio, esp['sin_episodio']);
+        expect(e.sinCalibracion, esp['sin_calibracion']);
         final c = esp['cumplimiento_hoy'];
         expect(e.cumplimientoHoy, c == null ? isNull : _cerca(c as num));
       });

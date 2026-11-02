@@ -42,8 +42,17 @@ va con los vectores, el firmware, la app y los tests en el mismo commit.
 | 1 | u8 | regimen: 0 sin apoyo, 1 subcarga, 2 en ventana, 3 exceso |
 | 2 | u16 | excedencias de hoy |
 | 4 | u8 | batería [%] |
-| 5 | u8 | flags: b0 cargando, b1 límite pendiente de confirmar, b2 hora no sincronizada, b3 sin episodio |
+| 5 | u8 | flags: b0 cargando, b1 límite pendiente de confirmar, b2 hora no sincronizada, b3 sin episodio, b4 sin calibración global |
 | 6 | u16 | cumplimiento de hoy ×10 [%] (0xFFFF si todavía no apoyó) |
+
+**`b4 sin calibración global`.** El equipo mide gramos sobre los sensores y los pasa a %PC con un
+factor `k`. Ese factor sale de pesar al paciente parado sobre una balanza con la bota puesta; hasta
+que eso se haga, el equipo usa un valor provisorio y enciende este bit. La app no lo muestra (el
+paciente no ve números), pero **la app lo sube en el bloque `equipo` y la web lo muestra en el
+reporte**: sin eso, el médico no puede distinguir una dosis clínica de una que no lo es.
+
+`k` vive en NVS y se borra al cerrar el episodio, porque la calibración es de la persona, no del
+equipo.
 
 No incluye la carga instantánea a propósito: el paciente no la ve.
 `regimen = 3` se mantiene durante todo el evento de excedencia (con la histéresis del Anexo A), así el semáforo no parpadea.
@@ -116,7 +125,7 @@ quedarse sin batería, vuelve a los valores de fábrica y queda midiendo contra 
 prescribió. Va en NVS, no en RAM.
 
 ## Pendiente para versiones siguientes
-- **Que el firmware real implemente BLE.** `alarma_con_display.ino` mide, calcula, guarda y muestra,
+- **Que el firmware real implemente BLE.** `dosimetro_calibrado.ino` mide, calcula, guarda y muestra,
   pero no habla BLE: es lo que falta para cerrar el circuito con la app y la web.
 - **El factor de gramos a %PC** (calibración global contra balanza). Sin eso el equipo no puede
   completar los campos de este protocolo con valores correctos.
